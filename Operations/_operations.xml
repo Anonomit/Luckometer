@@ -1,0 +1,7 @@
+<Ui xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+  
+  <Script file="DataStorage.lua"/>
+  <Script file="RollFiltering.lua"/>
+  <Script file="RollMath.lua"/>
+  <Script file="RollMonitoring.lua"/>
+</Ui>

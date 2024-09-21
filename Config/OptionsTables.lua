@@ -93,10 +93,14 @@ local function MakeGeneralOptions(opts)
     local results = self.rollResults.results
     
     if results then
-      GUI:CreateDescription(opts, format("%s: %s",  self.L["Loot Rolls"], self:ToFormattedNumber(results.count,        0)))
-      GUI:CreateDescription(opts, format("%s: %s",  self.L["Total"],      self:ToFormattedNumber(results.totalRoll,    0)))
-      GUI:CreateDescription(opts, format("%s: %s",  self.L["Average"],    self:ToFormattedNumber(results.avgRoll,      1)))
-      GUI:CreateDescription(opts, format("%s %s%%", self.L["Score:"],     self:ToFormattedNumber(results.avgScore*100, 1)))
+      if results.count > 0 then
+        GUI:CreateDescription(opts, format("%s: %s",  self.L["Loot Rolls"], self:ToFormattedNumber(results.count,        0)))
+        GUI:CreateDescription(opts, format("%s: %s",  self.L["Total"],      self:ToFormattedNumber(results.totalRoll,    0)))
+        GUI:CreateDescription(opts, format("%s: %s",  self.L["Average"],    self:ToFormattedNumber(results.avgRoll,      1)))
+        GUI:CreateDescription(opts, format("%s %s%%", self.L["Score:"],     self:ToFormattedNumber(results.avgScore*100, 1)))
+      else
+        GUI:CreateDescription(opts, format("%s: %s",  self.L["Loot Rolls"], 0))
+      end
       
       -- if #rolls > 0 then
       --   local d = C_DateAndTime.GetCalendarTimeFromEpoch(rolls[#rolls].datetime*1e6)

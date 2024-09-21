@@ -71,7 +71,7 @@ local function generator()
     end
   end
   
-  local avgRoll, avgScore
+  local avgRoll, avgScore = 0, 0
   if #filteredRolls > 0 then
     avgRoll  = totalRoll  / #filteredRolls
     avgScore = totalScore / #filteredRolls

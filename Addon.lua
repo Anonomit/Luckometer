@@ -35,9 +35,9 @@ function Addon:InitDB()
     
   end
   
-  -- set metatables
+  -- init roll db
   do
-    self.IndexedQueue(self:GetGlobalOptionQuiet"rolls")
+    self:SetGlobalOptionQuiet(self.IndexedQueue(self:GetGlobalOptionQuiet"rolls"), "rolls")
   end
   
   self:SetGlobalOption(tostring(self.version), "version")

@@ -1531,8 +1531,8 @@ do
     end
   end
 
-  function Addon:InitChatCommands(slashKeywords)
-    for i, chatCommand in ipairs(slashKeywords) do
+  function Addon:InitChatCommands(...)
+    for i, chatCommand in ipairs{...} do
       if i == 1 then
         self:MakeAddonOptions(chatCommand)
         self:MakeBlizzardOptions(chatCommand)

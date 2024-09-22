@@ -37,7 +37,7 @@ do
   local CALCULATION_INTERVAL = 0.1
   
   -- how many rolls to check at a time
-  local CALCULATION_SPEED = 100
+  local CALCULATION_SPEED = 500
   
   -- whether to refresh options menu when roll filtering is complete
   local AUTO_NOTIFY = false

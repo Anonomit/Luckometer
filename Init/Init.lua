@@ -219,7 +219,7 @@ do
       end
       return false
     end
-    function Addon:ThrowAssertf(bool, ...)
+    function Addon:ThrowfAssert(bool, ...)
       if bool then return bool end
       local args = {...}
       local count = select("#", ...)
@@ -235,7 +235,7 @@ do
     function Addon:ErrorLevel(lvl, str)
       error(str, lvl + 1)
     end
-    function Addon:ErrorLevelf(lvl, ...)
+    function Addon:ErrorfLevel(lvl, ...)
       error(format(...), lvl + 1)
     end
     function Addon:Assert(bool, str)
@@ -253,7 +253,7 @@ do
         error(str, lvl + 1)
       end
     end
-    function Addon:AssertLevelf(lvl, bool, ...)
+    function Addon:AssertfLevel(lvl, bool, ...)
       if not bool then
         error(format(...), lvl + 1)
       end
@@ -393,7 +393,7 @@ do
     local meta = {}
     
     function IndexedQueue:Add(v)
-      Addon:AssertLevelf(2, v ~= nil, "Attempted to add a nil value")
+      Addon:AssertfLevel(2, v ~= nil, "Attempted to add a nil value")
       
       local id  = Addon:CheckTable(self, "next")
       Addon:StoreInTable(self, "next", id + 1)
@@ -415,9 +415,9 @@ do
     end
     
     function IndexedQueue:Remove(id)
-      Addon:AssertLevelf(2, type(id) == "number", "Attempted to remove a non-number index: %s (%s)", tostring(id), type(id))
+      Addon:AssertfLevel(2, type(id) == "number", "Attempted to remove a non-number index: %s (%s)", tostring(id), type(id))
       local v = rawget(Addon:CheckTable(self, "actual"), id)
-      Addon:AssertLevelf(2, v ~= nil, "Attempted to remove a nil value from index: %s (%s)", tostring(id), type(id))
+      Addon:AssertfLevel(2, v ~= nil, "Attempted to remove a nil value from index: %s (%s)", tostring(id), type(id))
       
       local pre = GetPre(self, id)
       local nex = GetNex(self, id)
@@ -455,7 +455,7 @@ do
     end
     
     function IndexedQueue:Get(id)
-      Addon:AssertLevelf(2, type(id) == "number", "Attempted to access a non-number index: %s (%s)", tostring(id), type(id))
+      Addon:AssertfLevel(2, type(id) == "number", "Attempted to access a non-number index: %s (%s)", tostring(id), type(id))
       return Addon:CheckTable(self, "actual", id)
     end
     
@@ -537,8 +537,8 @@ do
         end
       end,
       __newindex = function(self, k, v)
-        Addon:AssertLevelf(2, v == nil, "Attempted to insert an element by index: %s = %s", tostring(k), tostring(v))
-        Addon:AssertLevelf(2, type(k) == "number", "Attempted to remove an element with an invalid key: %s (%s)", tostring(k), type(k))
+        Addon:AssertfLevel(2, v == nil, "Attempted to insert an element by index: %s = %s", tostring(k), tostring(v))
+        Addon:AssertfLevel(2, type(k) == "number", "Attempted to remove an element with an invalid key: %s (%s)", tostring(k), type(k))
         
         return IndexedQueue.Remove(self, k)
       end,
@@ -1151,14 +1151,16 @@ do
   
   
   do
-    local onInitializeCallbacks = Addon.IndexedQueue()
-    local onEnableCallbacks     = Addon.IndexedQueue()
-    local events = {}
+    local events = {
+      Initialize       = Addon.IndexedQueue(),
+      Enable           = Addon.IndexedQueue(),
+      OptionsOpenPre   = Addon.IndexedQueue(),
+      OptionsOpenPost  = Addon.IndexedQueue(),
+      -- OptionsClosePre  = Addon.IndexedQueue(),
+      OptionsClosePost = Addon.IndexedQueue(),
+    }
     
-    for _, event in ipairs{"Initialize", "Enable"} do
-      local callbacks = Addon.IndexedQueue()
-      events[event] = callbacks
-      
+    for event, callbacks in pairs(events) do
       Addon["Run" .. event .. "Callbacks"] = function(self)
         for i, func in callbacks:iter() do
           Call(func, Addon)
@@ -1176,6 +1178,17 @@ do
       end
     end
   end
+  
+  
+  Addon:RegisterOptionsOpenPreCallback(function()
+    Addon:DebugIfOutput("optionsOpenedPre", "Options opened (Pre)")
+  end)
+  Addon:RegisterOptionsOpenPostCallback(function()
+    Addon:DebugIfOutput("optionsOpenedPost", "Options opened (Post)")
+  end)
+  Addon:RegisterOptionsClosePostCallback(function()
+    Addon:DebugIfOutput("optionsOpenedPost", "Options closed (Post)")
+  end)
   
   
   function Addon:RegisterCVarCallback(cvar, func)
@@ -1454,21 +1467,49 @@ do
     end
   end
   
+  local function HookCloseConfig()
+    local hookedKey = "hooked" .. ADDON_NAME
+    
+    local frame = Addon:GetConfigWindow()
+    Addon:ThrowAssert(frame, "Can't find frame to hook options menu close")
+    
+    if frame[hookedKey] then return end
+    
+    frame:HookScript('OnHide', function(self)
+      local currentFrame = Addon:GetConfigWindow()
+      if not currentFrame or self ~= currentFrame then
+        Addon:RunOptionsClosePostCallbacks()
+      end
+    end)
+    
+    frame[hookedKey] = true
+  end
+  
+  function Addon:GetConfigWindow()
+    return self:CheckTable(self, "AceConfigDialog", "OpenFrames", ADDON_NAME, "frame")
+  end
+  function Addon:IsConfigOpen(...)
+    return self:GetConfigWindow() and true or false
+  end
   function Addon:OpenConfig(...)
+    self:RunOptionsOpenPreCallbacks()
     self.AceConfigDialog:Open(ADDON_NAME)
     if select("#", ...) > 0 then
       self.AceConfigDialog:SelectGroup(ADDON_NAME, ...)
     end
+    HookCloseConfig()
+    self:RunOptionsOpenPostCallbacks()
   end
   function Addon:CloseConfig()
+    -- self:RunOptionsClosePreCallbacks()
     self.AceConfigDialog:Close(ADDON_NAME)
+    -- self:RunOptionsClosePostCallbacks()
   end
   function Addon:ToggleConfig(...)
-    if self.AceConfigDialog.OpenFrames[ADDON_NAME] then
+    if self:IsConfigOpen(...) then
       self:CloseConfig()
     else
       self:OpenConfig(...)
-      self.AceConfigDialog:SelectGroup(ADDON_NAME, ...)
     end
   end
   

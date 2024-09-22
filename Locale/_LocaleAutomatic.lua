@@ -138,15 +138,15 @@ L["Classes: %s"] = ITEM_CLASSES_ALLOWED
 L["%s rolls %d (%d-%d)"] = RANDOM_ROLL_RESULT
 
 
-L["Filters"]      = FILTERS
-L["Group Loot"]   = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
-L["/roll"]        = SLASH_RANDOM7
-L["Loot Rolls"]   = LOOT_ROLLS
-L["Win"]          = WIN
-L["Yes"]          = YES
-L["No"]           = NO
-L["Search"]       = SEARCH
-L["Searching..."] = SEARCHING
+L["Filters"]           = FILTERS
+L["Group Loot"]        = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
+L["/roll"]             = SLASH_RANDOM7
+L["Loot Rolls"]        = LOOT_ROLLS
+L["Win"]               = WIN
+L["Yes"]               = YES
+L["No"]                = NO
+L["Click to Research"] = ORDER_HALL_TALENT_RESEARCH
+L["Processing..."]     = BLIZZARD_STORE_PROCESSING
 
 L["Total"]   = TOTAL
 L["Average"] = GMSURVEYRATING3

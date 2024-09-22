@@ -16,7 +16,7 @@ local strMatch = string.match
 
 
 local function VerifyRollData(rollData)
-  Addon:ThrowAssertf((rollData.max or 100) ~= (rollData.min or 1), "Roll contains no entropy. %s-%s", tostring(rollData.max or 100), tostring(rollData.min or 1))
+  Addon:ThrowfAssert((rollData.max or 100) ~= (rollData.min or 1), "Roll contains no entropy. %s-%s", tostring(rollData.max or 100), tostring(rollData.min or 1))
   
   return rollData
 end
@@ -40,13 +40,13 @@ local function StoreCharacter()
   local realmID   = GetRealmID()
   local realmName = GetNormalizedRealmName()
   
-  if self:ThrowAssertf(realmID and realmName, "Couldn't store realm name/id in db. name: %s, id: %s.", tostring(realmName), tostring(realmID)) then
+  if self:ThrowfAssert(realmID and realmName, "Couldn't store realm name/id in db. name: %s, id: %s.", tostring(realmName), tostring(realmID)) then
     if self:GetGlobalOptionQuiet("realms", realmID) ~= realmName then
       self:SetGlobalOption(realmName, "realms", realmID)
     end
   end
   
-  if self:ThrowAssertf(self.MY_GUID, "Couldn't store character in db. guid: %s.", tostring(guid)) then
+  if self:ThrowfAssert(self.MY_GUID, "Couldn't store character in db. guid: %s.", tostring(guid)) then
     local characterData = self:GetGlobalOptionQuiet("characters", self.MY_GUID)
     local changed = false
     if not characterData then

@@ -38,6 +38,7 @@ local function MakeGeneralOptions(opts)
   local self = Addon
   local GUI = self.GUI
   local opts = GUI:CreateGroup(opts, ADDON_NAME, ADDON_NAME, nil, "tab")
+  local desc, disabled
   
   GUI:SetDBType"Global"
   local disabled
@@ -46,8 +47,8 @@ local function MakeGeneralOptions(opts)
     local opts = GUI:CreateGroupBox(opts, self.L["Filters"])
     
     do
-      GUI:CreateToggle(opts, {"filters", "rollType", "group"}, self.L["Group Loot"], nil, disabled or not self:GetGlobalOption("filters", "rollType", "manual"))
-      GUI:CreateToggle(opts, {"filters", "rollType", "manual"}, self.L["/roll"],     nil, disabled or not self:GetGlobalOption("filters", "rollType", "group"))
+      GUI:CreateToggle(opts, {"filters", "rollType", "group"}, self.L["Group Loot"], nil, disabled) -- or not self:GetGlobalOption("filters", "rollType", "manual"))
+      GUI:CreateToggle(opts, {"filters", "rollType", "manual"}, self.L["/roll"],     nil, disabled) -- or not self:GetGlobalOption("filters", "rollType", "group"))
       GUI:CreateNewline(opts)
     end
     
@@ -55,8 +56,8 @@ local function MakeGeneralOptions(opts)
       local opts = GUI:CreateGroupBox(opts, self.L["Win"])
       
       local disabled = not self:GetGlobalOption("filters", "rollType", "group")
-      GUI:CreateToggle(opts, {"filters", "rollWon", 1}, self.L["Yes"], nil, disabled or not self:GetGlobalOption("filters", "rollWon", 0))
-      GUI:CreateToggle(opts, {"filters", "rollWon", 0}, self.L["No"],  nil, disabled or not self:GetGlobalOption("filters", "rollWon", 1))
+      GUI:CreateToggle(opts, {"filters", "rollWon", 1}, self.L["Yes"], nil, disabled) -- or not self:GetGlobalOption("filters", "rollWon", 0))
+      GUI:CreateToggle(opts, {"filters", "rollWon", 0}, self.L["No"],  nil, disabled) -- or not self:GetGlobalOption("filters", "rollWon", 1))
       GUI:CreateNewline(opts)
     end
     
@@ -79,11 +80,6 @@ local function MakeGeneralOptions(opts)
   end
   
   
-  do
-    GUI:CreateExecute(opts, "Search", self.L["Search"], desc, function() Addon:StartRollCalculations() Addon:NotifyChange() end, self.rollResults.progress)
-  end
-  
-  
   
   
   if self.rollResults.results or self.rollResults.progress then
@@ -94,10 +90,9 @@ local function MakeGeneralOptions(opts)
     
     if results then
       if results.count > 0 then
-        GUI:CreateDescription(opts, format("%s: %s",  self.L["Loot Rolls"], self:ToFormattedNumber(results.count,        0)))
-        GUI:CreateDescription(opts, format("%s: %s",  self.L["Total"],      self:ToFormattedNumber(results.totalRoll,    0)))
-        GUI:CreateDescription(opts, format("%s: %s",  self.L["Average"],    self:ToFormattedNumber(results.avgRoll,      1)))
-        GUI:CreateDescription(opts, format("%s %s%%", self.L["Score:"],     self:ToFormattedNumber(results.avgScore*100, 1)))
+        GUI:CreateDescription(opts, format("%s: %s",         self.L["Loot Rolls"], self:ToFormattedNumber(results.count,        0)))
+        GUI:CreateDescription(opts, format("%s: %s (1-100)", self.L["Average"],    self:ToFormattedNumber(results.avgRoll,      1)))
+        GUI:CreateDescription(opts, format("%s %s%%",        self.L["Score:"],     self:ToFormattedNumber(results.avgScore*100, 1)))
       else
         GUI:CreateDescription(opts, format("%s: %s",  self.L["Loot Rolls"], 0))
       end
@@ -112,9 +107,13 @@ local function MakeGeneralOptions(opts)
       --   GUI:CreateDescription(opts, text)
         
       -- end
-    elseif self.rollResults.progress then
+    elseif self.rollResults.progress and self.rollResults.notify then
       -- GUI:CreateDescription(opts, format("%s%%", self:ToFormattedNumber(self.rollResults.progress*100, 0)))
-      GUI:CreateDescription(opts, self.L["Searching..."])
+      GUI:CreateDescription(opts, self.L["Processing..."])
+    elseif self.rollResults.progress then
+      -- local disabled = self.rollResults.progress and true or false
+      
+      GUI:CreateExecute(opts, "Search", self.L["Click to Research"], desc, function() Addon:StartRollCalculations(true) Addon:NotifyChange() end, disabled)
     end
     
     
@@ -143,6 +142,26 @@ end
 
 
 
+--  ██████╗ ██████╗  ██████╗ ███████╗██╗██╗     ███████╗     ██████╗ ██████╗ ████████╗██╗ ██████╗ ███╗   ██╗███████╗
+--  ██╔══██╗██╔══██╗██╔═══██╗██╔════╝██║██║     ██╔════╝    ██╔═══██╗██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║██╔════╝
+--  ██████╔╝██████╔╝██║   ██║█████╗  ██║██║     █████╗      ██║   ██║██████╔╝   ██║   ██║██║   ██║██╔██╗ ██║███████╗
+--  ██╔═══╝ ██╔══██╗██║   ██║██╔══╝  ██║██║     ██╔══╝      ██║   ██║██╔═══╝    ██║   ██║██║   ██║██║╚██╗██║╚════██║
+--  ██║     ██║  ██║╚██████╔╝██║     ██║███████╗███████╗    ╚██████╔╝██║        ██║   ██║╚██████╔╝██║ ╚████║███████║
+--  ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝╚══════╝     ╚═════╝ ╚═╝        ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
+
+local function MakeProfileOptions(opts, categoryName)
+  local self = Addon
+  local GUI = self.GUI
+  
+  local profileOptions = self.AceDBOptions:GetOptionsTable(self:GetDB())
+  profileOptions.order = GUI:Order()
+  opts.args[categoryName] = profileOptions
+  
+  return opts
+end
+
+
+
 
 --  ██████╗ ███████╗██████╗ ██╗   ██╗ ██████╗      ██████╗ ██████╗ ████████╗██╗ ██████╗ ███╗   ██╗███████╗
 --  ██╔══██╗██╔════╝██╔══██╗██║   ██║██╔════╝     ██╔═══██╗██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║██╔════╝
@@ -164,7 +183,7 @@ local function MakeDebugOptions(opts, categoryName)
   
   -- Enable
   do
-    local opts = GUI:CreateGroup(opts, GUI:Order(), self.L["Enable"])
+    local opts = GUI:CreateGroup(opts, "Enable", self.L["Enable"])
     
     do
       local opts = GUI:CreateGroupBox(opts, self.L["Debug"])
@@ -181,7 +200,7 @@ local function MakeDebugOptions(opts, categoryName)
   
   -- Debug Output
   do
-    local opts = GUI:CreateGroup(opts, GUI:Order(), "Output")
+    local opts = GUI:CreateGroup(opts, "Output", "Output")
     
     local disabled = not self:GetGlobalOption"debug"
     
@@ -197,9 +216,11 @@ local function MakeDebugOptions(opts, categoryName)
       local disabled = disabled or self:GetGlobalOption("debugOutput", "suppressAll")
       
       for i, data in ipairs{
-        {"optionSet",                 "Option Set"},
-        {"cvarSet",                   "CVar Set"},
-        {"InterfaceOptionsFrameFix",  "Interface Options Patch"},
+        {"optionsOpenedPre",    "Options Window Opened (Pre)"},
+        {"optionsOpenedPost",   "Options Window Opened (Post)"},
+        {"optionsClosededPost", "Options Window Closed (Post)"},
+        {"optionSet",           "Option Set"},
+        {"cvarSet",             "CVar Set"},
       } do
         if i ~= 1 then
           GUI:CreateNewline(opts)
@@ -210,25 +231,6 @@ local function MakeDebugOptions(opts, categoryName)
   end
   
   GUI:ResetDBType()
-  
-  return opts
-end
-
-
---  ██████╗ ██████╗  ██████╗ ███████╗██╗██╗     ███████╗     ██████╗ ██████╗ ████████╗██╗ ██████╗ ███╗   ██╗███████╗
---  ██╔══██╗██╔══██╗██╔═══██╗██╔════╝██║██║     ██╔════╝    ██╔═══██╗██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║██╔════╝
---  ██████╔╝██████╔╝██║   ██║█████╗  ██║██║     █████╗      ██║   ██║██████╔╝   ██║   ██║██║   ██║██╔██╗ ██║███████╗
---  ██╔═══╝ ██╔══██╗██║   ██║██╔══╝  ██║██║     ██╔══╝      ██║   ██║██╔═══╝    ██║   ██║██║   ██║██║╚██╗██║╚════██║
---  ██║     ██║  ██║╚██████╔╝██║     ██║███████╗███████╗    ╚██████╔╝██║        ██║   ██║╚██████╔╝██║ ╚████║███████║
---  ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚══════╝╚══════╝     ╚═════╝ ╚═╝        ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
-
-local function MakeProfileOptions(opts, categoryName)
-  local self = Addon
-  local GUI = self.GUI
-  
-  local profileOptions = self.AceDBOptions:GetOptionsTable(self:GetDB())
-  profileOptions.order = GUI:Order()
-  opts.args[categoryName] = profileOptions
   
   return opts
 end

@@ -37,12 +37,4 @@ end
 
 
 
-Addon:RegisterOptionSetHandler(function(self, val, ...)
-  local path = {...}
-  if path[2] == "global" and path[3] == "filters" then
-    Addon:StopRollCalculations()
-  end
-end)
-
-
 

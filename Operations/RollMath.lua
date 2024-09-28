@@ -39,29 +39,75 @@ do
   -- how many rolls to check at a time
   local CALCULATION_SPEED = 500
   
+  -- whether to begin calculations immediately
+  local INSTANT_RUN = false
+  
+  -- how many rolls to check instantly
+  local INSTANT_SPEED = 100
+  
   -- whether to refresh options menu when roll filtering is complete
   local AUTO_NOTIFY = false
   
   
   local rollResults = {
-    timer    = nil,
-    co       = nil,
-    progress = nil,
-    results  = nil,
+    timer      = nil,
+    co         = nil,
+    controller = nil,
+    progress   = nil,
+    results    = nil,
   }
   Addon.rollResults = rollResults
-
-  local function generator()
+  
+  local function generator(calculationSpeed)
+    if not calculationSpeed then
+      calculationSpeed = CALCULATION_SPEED
+    end
+    
     local rolls = Addon:GetGlobalOptionQuiet"rolls"
     rollResults.filteredRolls = {}
     local filteredRolls = rollResults.filteredRolls
     
     local count = 0
-    local totalRoll, totalScore = 0, 0
+    local deserializedRolls = {}
+    local itemsToCache = {}
+    
+    -- gather rolls from db
     for i, rollString in rolls:iter() do
       count = count + 1
       
       local rollData = Addon:DeserializeRollData(rollString)
+      deserializedRolls[#deserializedRolls+1] = rollData
+      
+      if rollData.itemLink then
+        rollData.item = Addon.ItemCache(rollData.itemLink)
+      end
+        
+      if not Addon:CanFilter(rollData) then
+        itemsToCache[#itemsToCache+1] = rollData.item
+      end
+      
+      if count % calculationSpeed == 0 then
+        calculationSpeed = coroutine.yield() or CALCULATION_SPEED
+        count = 0
+      end
+    end
+    
+    -- cache missing items
+    if #itemsToCache > 0 then
+      Addon:DebugfIfOutput("countUncachedRolls", "Rolls to cache: %d", #itemsToCache)
+      rollResults.controller = Addon.ItemCache:Cache(itemsToCache)
+      while not rollResults.controller:IsComplete() do
+        calculationSpeed = coroutine.yield() or CALCULATION_SPEED
+        count = 0
+      end
+      Addon:DebugIfOutput("rollsCached", "Rolls cached")
+    end
+    
+    -- do some math with the rolls
+    local completed, totalRoll, totalScore = 0, 0, 0
+    for _, rollData in ipairs(deserializedRolls) do
+      count = count + 1
+      
       if Addon:DoesRollPassFilter(rollData) then
         filteredRolls[#filteredRolls+1] = rollData
         
@@ -74,11 +120,11 @@ do
         totalRoll  = totalRoll  + roll
         totalScore = totalScore + rollScore
       end
+      completed = completed + 1
       
-      if count % CALCULATION_SPEED == 0 then
-        -- rollResults.progress = count / rolls:GetCount()
-        -- Addon:NotifyChange()
-        coroutine.yield()
+      if count % calculationSpeed == 0 then
+        calculationSpeed = coroutine.yield() or CALCULATION_SPEED
+        count = 0
       end
     end
     
@@ -101,46 +147,63 @@ do
       Addon:NotifyChange()
     end
   end
-
-
-
+  
+  
+  
   function Addon:StartRollCalculations(notify)
     rollResults.notify = rollResults.notify or notify
     if rollResults.progress or rollResults.results then return end
     
     rollResults.progress = 0
     rollResults.results = nil
-    rollResults.co = coroutine.create(generator)
+    if rollResults.controller then
+      rollResults.controller:Cancel()
+      rollResults.controller = nil
+    end
     
-    rollResults.timer = C_Timer.NewTicker(CALCULATION_INTERVAL, function()
+    rollResults.co = coroutine.create(generator)
+    local function generate(timer, calculationSpeed)
       if rollResults.co and coroutine.status(rollResults.co) == "suspended" then
-        local success, err = coroutine.resume(rollResults.co)
+        local success, err = coroutine.resume(rollResults.co, calculationSpeed)
         self:ThrowAssert(success, err)
       else
         rollResults.co = nil
-        rollResults.timer:Cancel()
-        rollResults.timer = nil
+        if rollResults.timer then
+          rollResults.timer:Cancel()
+          rollResults.timer = nil
+        end
       end
-    end)
+    end
+    if INSTANT_RUN then
+      generate(nil, INSTANT_SPEED)
+    end
+    
+    if coroutine.status(rollResults.co) ~= "dead" then
+      rollResults.timer = C_Timer.NewTicker(CALCULATION_INTERVAL, generate)
+    end
   end
-
+  
   function Addon:StopRollCalculations()
     if rollResults.results then return end
     self:ResetRollCalculations()
   end
-
-
+  
+  
   function Addon:ResetRollCalculations()
     if rollResults.timer then
       rollResults.timer:Cancel()
+      rollResults.timer = nil
     end
-    rollResults.timer    = nil
-    rollResults.co       = nil
+    rollResults.co = nil
+    if rollResults.controller then
+      rollResults.controller:Cancel()
+      rollResults.controller = nil
+    end
     rollResults.progress = nil
     rollResults.notify   = nil
     rollResults.results  = nil
   end
-
+  
   function Addon:RestartRollCalculations()
     self:ResetRollCalculations()
     self:StartRollCalculations()
@@ -164,6 +227,9 @@ Addon:RegisterOptionSetHandler(function(self, val, ...)
     self:ResetRollCalculations()
     if self:IsConfigOpen() then
       self:StartRollCalculations()
+    end
+    if path[3] == "rolls" then
+      self:NotifyChange() -- making sure the research button is visible
     end
   end
 end)

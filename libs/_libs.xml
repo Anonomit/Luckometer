@@ -22,5 +22,6 @@
   <Include file="AceSerializer-3.0\AceSerializer-3.0.xml"/>
   
   
+  <Include file="ItemCache\ItemCache.xml"/>
   <Include file="SemVer\SemVer.xml"/>
 </Ui>

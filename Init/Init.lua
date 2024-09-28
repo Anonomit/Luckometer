@@ -325,6 +325,27 @@ end
 --     ╚═╝   ╚═╝  ╚═╝╚═════╝ ╚══════╝╚══════╝╚══════╝
 
 do
+  local function DeepCopy(orig, seen)
+    local new
+    if type(orig) == "table" then
+      if seen[orig] then
+        new = seen[orig]
+      else
+        new = {}
+        seen[orig] = copy
+        for k, v in next, orig, nil do
+          new[DeepCopy(k, seen)] = DeepCopy(v, seen)
+        end
+        setmetatable(new, DeepCopy(getmetatable(orig), seen))
+      end
+    else
+      new = orig
+    end
+    return new
+  end
+  function Addon:Copy(val)
+    return DeepCopy(val, {})
+  end
   
   function Addon:TableConcat(tbl, separator)
     local t = {}
@@ -894,28 +915,6 @@ end
 --  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝
 
 do
-  local function DeepCopy(orig, seen)
-    local new
-    if type(orig) == "table" then
-      if seen[orig] then
-        new = seen[orig]
-      else
-        new = {}
-        seen[orig] = copy
-        for k, v in next, orig, nil do
-          new[DeepCopy(k, seen)] = DeepCopy(v, seen)
-        end
-        setmetatable(new, DeepCopy(getmetatable(orig), seen))
-      end
-    else
-      new = orig
-    end
-    return new
-  end
-  function Addon:Copy(val)
-    return DeepCopy(val, {})
-  end
-  
   local onOptionSetHandlers = {}
   function Addon:RegisterOptionSetHandler(func)
     tinsert(onOptionSetHandlers, func)
@@ -973,10 +972,10 @@ do
       local GetDefaultOption = format("Get%s%sOption",      defaultName, typeName)
       
       Addon[GetOptionQuiet] = function(self, ...)
-        assert(self[dbKey], format("Attempted to access database before initialization: %s", self:TableConcat({dbKey, typeKey, ...}, " > ")))
+        assert(self[dbKey], format("Attempted to access database before initialization: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > ")))
         local val = self[dbKey][typeKey]
         for _, key in ipairs{...} do
-          assert(type(val) == "table", format("Bad database access: %s", self:TableConcat({dbKey, typeKey, ...}, " > ")))
+          assert(type(val) == "table", format("Bad database access: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > ")))
           val = val[key]
         end
         return val
@@ -985,10 +984,10 @@ do
       Addon[GetOption] = function(self, ...)
         local val = Addon[GetOptionQuiet](self, ...)
         if type(val) == "table" then
-          self:Warnf("Database request returned a table: %s", self:TableConcat({dbKey, typeKey, ...}, " > "))
+          Addon:Warnf("Database request returned a table: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "))
         end
         if val == nil then
-          self:Warnf("Database request found empty value: %s", self:TableConcat({dbKey, typeKey, ...}, " > "))
+          Addon:Warnf("Database request found empty value: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "))
         end
         return val
       end
@@ -1008,17 +1007,17 @@ do
         local ResetOptionConfigQuiet  = format("Reset%s%sOptionConfigQuiet",  dbName, typeName)
         
         local function Set(self, quiet, config, val, ...)
-          assert(self[dbKey], format("Attempted to access database before initialization: %s = %s", self:TableConcat({dbKey, typeKey, ...}, " > "), tostring(val)))
+          assert(self[dbKey], format("Attempted to access database before initialization: %s = %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "), tostring(val)))
           local keys = {...}
           local lastKey = tblRemove(keys, #keys)
           local tbl = self[dbKey][typeKey]
           for _, key in ipairs(keys) do
-            assert(type(tbl[key]) == "table", format("Bad database access: %s = %s", self:TableConcat({dbKey, typeKey, ...}, " > "), tostring(val)))
+            assert(type(tbl[key]) == "table", format("Bad database access: %s = %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "), tostring(val)))
             tbl = tbl[key]
           end
           local lastVal = tbl[lastKey]
           if not quiet and type(lastVal) == "table" then
-            self:Warnf("Database access overwriting a table: %s", self:TableConcat({dbKey, typeKey, ...}, " > "))
+            Addon:Warnf("Database access overwriting a table: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "))
           end
           tbl[lastKey] = val
           OnOptionSet(self, val, dbKey, typeKey, ...)
@@ -1187,7 +1186,7 @@ do
     Addon:DebugIfOutput("optionsOpenedPost", "Options opened (Post)")
   end)
   Addon:RegisterOptionsClosePostCallback(function()
-    Addon:DebugIfOutput("optionsOpenedPost", "Options closed (Post)")
+    Addon:DebugIfOutput("optionsClosedPost", "Options closed (Post)")
   end)
   
   
@@ -1299,6 +1298,25 @@ do
     local ResetFunction    = function(keys) local funcName = format("Reset%sOptionConfig", dbType) return function(info, val)        Addon[funcName](Addon, unpack(keys))      end end
     local GetColorFunction = function(keys) local funcName = format("Get%sOption",         dbType) return function(info)          return Addon:ConvertColorToBlizzard(Addon[funcName](Addon, unpack(keys)))            end end
     local SetColorFunction = function(keys) local funcName = format("Set%sOption",         dbType) return function(info, r, g, b)        Addon[funcName](Addon, Addon:ConvertColorFromBlizzard(r, g, b), unpack(keys)) end end
+    
+    
+    local MultiGetFunction = function(keys)
+      local funcName = format("Get%sOption", dbType)
+      return function(info, key)
+        local path = Addon:Copy(keys)
+        path[#path+1] = key
+        return Addon[funcName](Addon, unpack(path))
+      end
+    end
+    
+    local MultiSetFunction = function(keys)
+      local funcName = format("Set%sOptionConfig", dbType)
+      return function(info, key, val)
+        local path = Addon:Copy(keys)
+        path[#path+1] = key
+        Addon[funcName](Addon, val, unpack(path))
+      end
+    end
     -- options window needs to redraw if color changes
     
     function GUI:SetDBType(typ)
@@ -1370,13 +1388,11 @@ do
       option.sorting = sorting
       return option
     end
-    
     function GUI:CreateDropdown(...)
       local option = self:CreateSelect(...)
       option.style = "dropdown"
       return option
     end
-    
     function GUI:CreateRadio(...)
       local option = self:CreateSelect(...)
       option.style = "radio"
@@ -1385,7 +1401,14 @@ do
     
     function GUI:CreateMultiSelect(opts, keys, name, desc, values, disabled)
       local option = self:CreateEntry(opts, keys, name, desc, "multiselect", disabled)
-      option.values  = values
+      option.values = values
+      option.get = MultiGetFunction(keys)
+      option.set = MultiSetFunction(keys)
+      return option
+    end
+    function GUI:CreateMultiDropdown(...)
+      local option = self:CreateMultiSelect(...)
+      option.dialogControl = "Dropdown"
       return option
     end
     
@@ -1468,21 +1491,26 @@ do
   end
   
   local function HookCloseConfig()
-    local hookedKey = "hooked" .. ADDON_NAME
+    local hookedKey = ADDON_NAME .. "_OPEN"
     
     local frame = Addon:GetConfigWindow()
     Addon:ThrowAssert(frame, "Can't find frame to hook options menu close")
     
-    if frame[hookedKey] then return end
+    local alreadyHooked = frame[hookedKey] ~= nil
+    frame[hookedKey] = true
+    
+    if alreadyHooked then return end
     
     frame:HookScript('OnHide', function(self)
       local currentFrame = Addon:GetConfigWindow()
       if not currentFrame or self ~= currentFrame then
-        Addon:RunOptionsClosePostCallbacks()
+        if self[hookedKey] then
+          Addon:RunOptionsClosePostCallbacks()
+          self[hookedKey] = false
+        end
       end
     end)
     
-    frame[hookedKey] = true
   end
   
   function Addon:GetConfigWindow()

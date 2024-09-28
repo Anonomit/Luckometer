@@ -17,6 +17,7 @@ local strMatch = string.match
 
 local function VerifyRollData(rollData)
   Addon:ThrowfAssert((rollData.max or 100) ~= (rollData.min or 1), "Roll contains no entropy. %s-%s", tostring(rollData.max or 100), tostring(rollData.min or 1))
+  Addon:ThrowAssert(rollData.manual or rollData.itemLink, "Group Loot roll doesn't contain an itemlink")
   
   return rollData
 end
@@ -112,16 +113,65 @@ end
 
 
 
-
-function Addon:GetRealmFromGUID(guid)
-  local realmID = tonumber(strMatch(guid, "Player%-([^%-]+)%-"))
-  self:Assert(realmID)
-  local realmName = self:GetGlobalOption("realms", realmID)
-  self:Assert(realmName)
+do
+  local memo = {}
   
-  return realmID, realmName
+  function Addon:GetRealmFromGUID(guid)
+    if not memo[guid] then
+      local realmID = tonumber(strMatch(guid, "Player%-([^%-]+)%-"))
+      self:Assertf(realmID, "Could not get realm id from guid %s", tostring(guid))
+      local realmName = self:GetGlobalOption("realms", realmID)
+      self:Assertf(realmName, "Could not get realm name from guid %s", tostring(guid))
+      memo[guid] = {realmID, realmName}
+    end
+    
+    return unpack(memo[guid])
+  end
 end
 
+
+do
+  local memo = {}
+  
+  function Addon:GetNameFromGUID(guid)
+    if not memo[guid] then
+      local charData = self:GetGlobalOptionQuiet("characters", guid)
+      self:Assertf(charData, "Could not find data for character with guid %s", tostring(guid))
+      
+      local name = charData.name
+      self:Assertf(name, "Could not find name for character with guid %s", tostring(guid))
+      
+      memo[guid] = name
+    end
+    
+    return memo[guid]
+  end
+end
+
+
+do
+  local memo = {}
+  
+  function Addon:GetColoredNameFromGUID(guid)
+    if not memo[guid] then
+      local charData = self:GetGlobalOptionQuiet("characters", guid)
+      self:Assertf(charData, "Could not find data for character with guid %s", tostring(guid))
+      
+      local name = charData.name
+      self:Assertf(name, "Could not find name for character with guid %s", tostring(guid))
+      
+      local classID = charData.class
+      self:Assertf(classID, "Could not find class for character with guid %s", tostring(guid))
+      
+      local classInfo = C_CreatureInfo.GetClassInfo(classID)
+      local color = RAID_CLASS_COLORS[classInfo.classFile]
+      
+      memo[guid] = color:WrapTextInColorCode(name)
+    end
+    
+    return memo[guid]
+  end
+end
 
 
 

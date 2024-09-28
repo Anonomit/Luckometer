@@ -8,6 +8,7 @@ _G.Luckometer = Addon
 
 
 Addon.AceSerializer = LibStub"AceSerializer-3.0"
+Addon.ItemCache = LibStub"ItemCache"
 
 
 

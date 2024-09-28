@@ -24,19 +24,9 @@ function Addon:MakeDefaultOptions()
         rolls      = {},
         
         filters = {
-          -- character = {
-          --   ["**"] = true,
-          -- },
-          -- class = {
-          --   ["**"] = true,
-          -- },
-          -- race = {
-          --   ["**"] = true,
-          -- },
-          -- sex = {
-          --   [2] = true,
-          --   [3] = true,
-          -- },
+          character = {
+            ["**"] = true,
+          },
           -- characterLevel = {
           --   min = 1,
           --   max = Addon.MAX_LEVEL,
@@ -44,6 +34,22 @@ function Addon:MakeDefaultOptions()
           rollType = {
             group  = true,
             manual = true,
+          },
+          rollLimits = {
+            min = {
+              enable = false,
+              min    = 1,
+              max    = 1,
+            },
+            max = {
+              enable = false,
+              min    = 100,
+              max    = 100,
+            },
+            -- span = {
+            --   min = 1,
+            --   max = 100,
+            -- },
           },
           -- invSlot = {
           --   ["**"] = true,
@@ -54,9 +60,17 @@ function Addon:MakeDefaultOptions()
           -- itemSubclass = {
           --   ["**"] = true,
           -- },
-          -- itemQuality = {
-          --   ["**"] = true,
-          -- },
+          itemQuality = {
+            [0] = true,
+            [1] = true,
+            [2] = true,
+            [3] = true,
+            [4] = true,
+            [5] = true,
+            [6] = true,
+            [7] = true,
+            [8] = true,
+          },
           rollWon = {
             [0] = true,
             [1] = true,

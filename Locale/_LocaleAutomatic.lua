@@ -83,12 +83,16 @@ L["[%d,%.]+"] = function() return "[%d%" .. L[","] .. "%" .. L["."] .. "]+" end
 
 
 L["Options"] = OPTIONS
+L["Unknown"] = UNKNOWN
 
 L["Enable"]  = ENABLE
 L["Disable"] = DISABLE
 L["Enabled"] = VIDEO_OPTIONS_ENABLED
 -- L["Disabled"] = ADDON_DISABLED
 L["Modifiers:"] = MODIFIERS_COLON
+
+L["Yes"] = YES
+L["No"]  = NO
 
 L["never"] = function() return strLower(CALENDAR_REPEAT_NEVER) end
 L["any"]   = function() return strLower(SPELL_TARGET_TYPE1_DESC) end
@@ -139,16 +143,25 @@ L["%s rolls %d (%d-%d)"] = RANDOM_ROLL_RESULT
 
 
 L["Filters"]           = FILTERS
+L["Character"]         = CHARACTER
 L["Group Loot"]        = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
 L["/roll"]             = SLASH_RANDOM7
+L["Loot Roll"]         = LOOT_ROLL
 L["Loot Rolls"]        = LOOT_ROLLS
 L["Win"]               = WIN
-L["Yes"]               = YES
-L["No"]                = NO
+L["Item Quality"]      = COLORBLIND_ITEM_QUALITY
+L["Limit to %s"]       = LFG_LIST_CROSS_FACTION
+L["Unlimited"]         = UNLIMITED
+L["Minimum"]           = MINIMUM
+L["Maximum"]           = MAXIMUM
+
+
 L["Click to Research"] = ORDER_HALL_TALENT_RESEARCH
 L["Processing..."]     = BLIZZARD_STORE_PROCESSING
 
 L["Total"]   = TOTAL
 L["Average"] = GMSURVEYRATING3
 L["Score:"]  = PROVING_GROUNDS_SCORE
+
+L["N/A"] = NOT_APPLICABLE
 

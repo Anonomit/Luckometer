@@ -73,6 +73,20 @@ local function StoreCharacter()
 end
 
 
+function Addon:DeleteCharacter(guid)
+  self:Assertf(guid, "Received invalid guid: %s", tostring(guid))
+  
+  local nameRealm = self:GetColoredNameRealmFromGUID(guid)
+  
+  self:ResetGlobalOptionConfigQuiet("filters", "character", guid)
+  self:ResetGlobalOptionConfigQuiet("characters", guid)
+  
+  local count = self:DeleteRolls(function(rollData) return rollData.guid == guid end)
+  Addon:DebugfIfOutput("charDeleted", "Deleted %s and %d |4roll:rolls;", nameRealm, count)
+  
+  return count
+end
+
 
 
 
@@ -84,8 +98,8 @@ function Addon:StoreRoll(rollData)
   
   StoreCharacter()
   
-  rollData.guid  = Addon.MY_GUID
-  rollData.level = Addon.MY_LEVEL
+  rollData.guid  = self.MY_GUID
+  rollData.level = self.MY_LEVEL
   
   if rollData.min == 1 then
     rollData.min = nil
@@ -95,13 +109,49 @@ function Addon:StoreRoll(rollData)
   end
   
   local rollString = self:SerializeRollData(rollData)
-  Addon:GetGlobalOptionQuiet("rolls"):Add(rollString)
+  local rolls = self:GetGlobalOptionQuiet"rolls"
+  rolls:Add(rollString)
+  self:SetGlobalOptionConfigQuiet(rolls, "rolls") -- run callbacks
+  
+  self:DebugfIfOutput("rollAdded", "Roll added: %d (%d-%d)", rollData.roll, rollData.min or 1, rollData.max or 100)
+  
   self:NotifyChange()
 end
 
 
 
+function Addon:DeleteRolls(filt)
+  local rolls = Addon:GetGlobalOptionQuiet("rolls")
+  
+  local count = 0
+  for i, rollString in rolls:iter() do
+    local rollData = Addon:DeserializeRollData(rollString)
+    if filt(rollData) then
+      count = count + 1
+      rolls:Remove(i)
+    end
+  end
+  if count > 0 then
+    rolls:Defrag()
+    Addon:SetGlobalOptionConfigQuiet(rolls, "rolls") -- run callbacks
+  end
+  
+  return count
+end
 
+function Addon:CountRolls(filt)
+  local rolls = Addon:GetGlobalOptionQuiet("rolls")
+  
+  local count = 0
+  for i, rollString in rolls:iter() do
+    local rollData = Addon:DeserializeRollData(rollString)
+    if filt(rollData) then
+      count = count + 1
+    end
+  end
+  
+  return count
+end
 
 
 function Addon:ClearRolls()
@@ -167,6 +217,23 @@ do
       local color = RAID_CLASS_COLORS[classInfo.classFile]
       
       memo[guid] = color:WrapTextInColorCode(name)
+    end
+    
+    return memo[guid]
+  end
+end
+
+
+do
+  local memo = {}
+  
+  function Addon:GetColoredNameRealmFromGUID(guid)
+    if not memo[guid] then
+      local coloredName = self:GetColoredNameFromGUID(guid)
+      local realmID, realmName = self:GetRealmFromGUID(guid)
+      
+      
+      memo[guid] = format("%s-%s", coloredName, realmName)
     end
     
     return memo[guid]

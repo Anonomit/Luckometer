@@ -12,8 +12,8 @@
 
 ## SavedVariables: LuckometerDB
 
-## OptionalDeps: Ace3, SemVer
-## X-Embeds: Ace3, SemVer
+## OptionalDeps: Ace3, SemVer, ItemCache
+## X-Embeds: Ace3, SemVer, ItemCache
 
 
 _addon.xml

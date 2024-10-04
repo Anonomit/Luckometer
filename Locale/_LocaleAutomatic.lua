@@ -18,6 +18,21 @@ local tostring = tostring
 local locale = GetLocale()
 
 
+--[[
+L["key"] = value
+
+value should be a string, but can also be a function that returns a string
+
+value could also be a list of strings or functions that return strings. the first truthy value will be used
+  a nil element will throw an error and continue to the next element
+  a false element will fail silently and continue to the next element
+
+a value of nil will throw an error and fail
+a value of false will fail silently
+
+accessing a key with no value will throw an error and return the key
+]]
+
 
 local actual = {}
 local L = setmetatable({}, {
@@ -49,19 +64,22 @@ local L = setmetatable({}, {
           else
             Addon:Warnf(ADDON_NAME..": Automatic translation #%d failed for '%s'", i, tostring(key))
           end
-        else
+        elseif val[i] ~= false then
           Addon:Warnf(ADDON_NAME..": Automatic translation #%d failed for '%s'", i, tostring(key))
         end
       end
     elseif type(val) == "function" then
       -- use the function return value unless it errors
+      if not Addon:xpcallSilent(val, function(err) Addon:Throwf("%s: Automatic translation error for '%s' : %s", ADDON_NAME, tostring(key), err) end) then
+        return
+      end
       local success, result = Addon:xpcall(val)
       if not success then
         Addon:Throwf("%s: Automatic translation error for '%s'", ADDON_NAME, tostring(key))
         return
       end
-      actual[key] = result
-    else
+      self[key] = result
+    elseif val ~= false then
       actual[key] = val
     end
   end,
@@ -85,11 +103,13 @@ L["[%d,%.]+"] = function() return "[%d%" .. L[","] .. "%" .. L["."] .. "]+" end
 L["Options"] = OPTIONS
 L["Unknown"] = UNKNOWN
 
-L["Enable"]  = ENABLE
-L["Disable"] = DISABLE
-L["Enabled"] = VIDEO_OPTIONS_ENABLED
--- L["Disabled"] = ADDON_DISABLED
-L["Modifiers:"] = MODIFIERS_COLON
+L["Enable"]      = ENABLE
+L["Disable"]     = DISABLE
+L["Enable All"]  = ENABLE_ALL_ADDONS
+L["Disable All"] = DISABLE_ALL_ADDONS
+L["Enabled"]     = VIDEO_OPTIONS_ENABLED
+L["Disabled"]    = ADDON_DISABLED
+L["Modifiers:"]  = MODIFIERS_COLON
 
 L["Yes"] = YES
 L["No"]  = NO
@@ -128,11 +148,12 @@ L["Miscellaneous"]     = MISCELLANEOUS
 L["Minimum"]           = MINIMUM
 L["Maximum"]           = MAXIMUM
 
-L["Manual"]          = TRACKER_SORT_MANUAL
+L["Manual"] = TRACKER_SORT_MANUAL
 
 L["All"] = ALL
 
--- L["Delete"]                       = DELETE
+L["Delete"] = DELETE
+L["Are you sure you want to permanently delete |cffffffff%s|r?"] = CONFIRM_COMPACT_UNIT_FRAME_PROFILE_DELETION
 
 
 
@@ -142,22 +163,38 @@ L["Classes: %s"] = ITEM_CLASSES_ALLOWED
 L["%s rolls %d (%d-%d)"] = RANDOM_ROLL_RESULT
 
 
+L["Stats"]             = PET_BATTLE_STATS_LABEL
 L["Filters"]           = FILTERS
 L["Character"]         = CHARACTER
+L["Select"]            = LFG_LIST_SELECT
+L["Male"]              = MALE
+L["Female"]            = FEMALE
+L["None"]              = NPC_NAMES_DROPDOWN_NONE
+L["Me"]                = COMBATLOG_FILTER_STRING_ME
+L["Any level"]         = GUILD_RECRUITMENT_ANYLEVEL
+L["Level"]             = LEVEL
+L["Level Range"]       = LEVEL_RANGE
+L["Level Range:"]      = BATTLEFIELD_LEVEL
+L["%d-%d"]             = PVP_RECORD_DESCRIPTION
+L["Level %d"]          = UNIT_LEVEL_TEMPLATE
+L["-->"]               = function() return strMatch(SELECT_CATEGORY, "^%S+") end
+L["Max Level"]         = GUILD_RECRUITMENT_MAXLEVEL
+L["Level %d-%d"]       = MEETINGSTONE_LEVEL
+
 L["Group Loot"]        = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
 L["/roll"]             = SLASH_RANDOM7
 L["Loot Roll"]         = LOOT_ROLL
 L["Loot Rolls"]        = LOOT_ROLLS
 L["Win"]               = WIN
 L["Item Quality"]      = COLORBLIND_ITEM_QUALITY
+L["Item Level"]        = LFG_LIST_ITEM_LEVEL_INSTR_SHORT
 L["Limit to %s"]       = LFG_LIST_CROSS_FACTION
 L["Unlimited"]         = UNLIMITED
-L["Minimum"]           = MINIMUM
-L["Maximum"]           = MAXIMUM
 
 
 L["Click to Research"] = ORDER_HALL_TALENT_RESEARCH
 L["Processing..."]     = BLIZZARD_STORE_PROCESSING
+L["Research Complete"] = GARRISON_TALENT_RESEARCH_COMPLETE
 
 L["Total"]   = TOTAL
 L["Average"] = GMSURVEYRATING3

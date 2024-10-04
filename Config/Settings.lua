@@ -4,7 +4,7 @@ local ADDON_NAME, Data = ...
 local Addon = LibStub("AceAddon-3.0"):GetAddon(ADDON_NAME)
 
 
-local tblConcat = table.concat
+
 
 
 function Addon:MakeDefaultOptions()
@@ -19,22 +19,53 @@ function Addon:MakeDefaultOptions()
       
       global = {
         
-        realms     = {},
+        rolls = {},
+        
         characters = {},
-        rolls      = {},
+        realms     = {},
         
         filters = {
           character = {
             ["**"] = true,
           },
-          -- characterLevel = {
-          --   min = 1,
-          --   max = Addon.MAX_LEVEL,
-          -- },
+          characterLevel = {
+            enable = false,
+            min    = 1,
+            max    = Addon.MAX_LEVEL,
+          },
           rollType = {
             group  = true,
             manual = true,
           },
+          rollWon = {
+            [0] = true,
+            [1] = true,
+          },
+          itemQuality = {
+            [0] = true,
+            [1] = true,
+            [2] = true,
+            [3] = true,
+            [4] = true,
+            [5] = true,
+            [6] = true,
+            [7] = true,
+            [8] = true,
+          },
+          itemLevel = {
+            enable = false,
+            min    = 1,
+            max    = Addon.MAX_ITEM_LEVEL_SLIDER,
+          },
+          -- invSlot = {
+          --   ["**"] = true,
+          -- },
+          -- itemClass = {
+          --   ["**"] = true,
+          -- },
+          -- itemSubclass = {
+          --   ["**"] = true,
+          -- },
           rollLimits = {
             min = {
               enable = false,
@@ -50,30 +81,6 @@ function Addon:MakeDefaultOptions()
             --   min = 1,
             --   max = 100,
             -- },
-          },
-          -- invSlot = {
-          --   ["**"] = true,
-          -- },
-          -- itemClass = {
-          --   ["**"] = true,
-          -- },
-          -- itemSubclass = {
-          --   ["**"] = true,
-          -- },
-          itemQuality = {
-            [0] = true,
-            [1] = true,
-            [2] = true,
-            [3] = true,
-            [4] = true,
-            [5] = true,
-            [6] = true,
-            [7] = true,
-            [8] = true,
-          },
-          rollWon = {
-            [0] = true,
-            [1] = true,
           },
         },
         

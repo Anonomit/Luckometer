@@ -8,14 +8,6 @@ local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
 
 
 
-local strGmatch = string.gmatch
-
-local tinsert   = table.insert
-local tblRemove = table.remove
-local tblConcat = table.concat
-
-
-
 
 
 
@@ -29,18 +21,14 @@ function Addon:InitDB()
     
   end
   
-  
-  -- validate
-  do
-    
-  end
-  
   -- init roll db
   do
     self:SetGlobalOptionQuiet(self.IndexedQueue(self:GetGlobalOptionQuiet"rolls"), "rolls")
   end
   
-  self:SetGlobalOption(tostring(self.version), "version")
+  if self:GetGlobalOption"version" ~= tostring(self.version) then
+    self:SetGlobalOption(tostring(self.version), "version")
+  end
 end
 
 
@@ -54,13 +42,9 @@ function Addon:InitProfile()
     
   end
   
-  
-  -- validate
-  do
-    
+  if self:GetOption"version" ~= tostring(self.version) then
+    self:SetOption(tostring(self.version), "version")
   end
-  
-  self:SetOption(tostring(self.version), "version")
 end
 
 

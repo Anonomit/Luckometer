@@ -25,12 +25,12 @@ end
 
 
 
-Addon:RegisterEnableCallback(function()
+Addon:RegisterEnableCallback(function(self)
   
   -- Group Loot rolls
   do
     local lootRolls = {}
-    Addon:RegisterEventCallback("START_LOOT_ROLL", function(self, e, rollID, rollTime, lootHandle)
+    self:RegisterEventCallback("START_LOOT_ROLL", function(self, e, rollID, rollTime, lootHandle)
       for i = 1, C_LootHistory.GetNumItems() do
         if C_LootHistory.GetItem(i) == rollID then
           local rollID, itemLink, numPlayers, isDone, winnerIdx, isMasterLoot = C_LootHistory.GetItem(i)
@@ -43,7 +43,7 @@ Addon:RegisterEnableCallback(function()
     end)
     
     -- LOOT_HISTORY_FULL_UPDATE
-    Addon:RegisterEventCallback("LOOT_ROLLS_COMPLETE", function(self, e, lootHandle)
+    self:RegisterEventCallback("LOOT_ROLLS_COMPLETE", function(self, e, lootHandle)
       
       for i = 1, C_LootHistory.GetNumItems() do
         local rollID, itemLink, numPlayers, isDone, winnerID, isMasterLoot = C_LootHistory.GetItem(i)

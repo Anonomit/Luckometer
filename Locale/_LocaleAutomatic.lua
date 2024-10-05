@@ -167,6 +167,9 @@ L["Stats"]             = PET_BATTLE_STATS_LABEL
 L["Filters"]           = FILTERS
 L["Character"]         = CHARACTER
 L["Select"]            = LFG_LIST_SELECT
+L["Alliance"]          = FACTION_ALLIANCE
+L["Horde"]             = FACTION_HORDE
+L["Neutral"]           = FACTION_STANDING_LABEL4
 L["Male"]              = MALE
 L["Female"]            = FEMALE
 L["None"]              = NPC_NAMES_DROPDOWN_NONE
@@ -180,6 +183,7 @@ L["Level %d"]          = UNIT_LEVEL_TEMPLATE
 L["-->"]               = function() return strMatch(SELECT_CATEGORY, "^%S+") end
 L["Max Level"]         = GUILD_RECRUITMENT_MAXLEVEL
 L["Level %d-%d"]       = MEETINGSTONE_LEVEL
+L["Obliterate"]        = OBLITERATE_BUTTON
 
 L["Group Loot"]        = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
 L["/roll"]             = SLASH_RANDOM7

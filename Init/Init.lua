@@ -386,6 +386,21 @@ do
     end
   end
   
+  function Addon:CountKeys(t)
+    local count = 0
+    for _ in pairs(t) do
+      count = count + 1
+    end
+    return count
+  end
+  function Addon:Sum(t)
+    local sum = 0
+    for _, n in pairs(t) do
+      sum = sum + n
+    end
+    return sum
+  end
+  
   do
     local function GetPre(t, i)
       return Addon:CheckTable(t, "links", i, 1) or i-1

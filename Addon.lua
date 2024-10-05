@@ -18,16 +18,39 @@ function Addon:InitDB()
   if not self:GetGlobalOption"version" then -- first run
   
   else -- upgrade data schema
+    if configVersion <= self.SemVer"1.2.0" then
+      -- separate rolls by guid
+      local newRolls = {}
+      
+      local rolls = self.IndexedQueue(self:GetGlobalOptionQuiet"rolls")
+      for i, rollString in rolls:iter() do
+        local rollData = self:DeserializeRollData(rollString)
+        
+        local guid = rollData.guid
+        rollData.guid = nil
+        if not newRolls[guid] then
+          newRolls[guid] = self.IndexedQueue()
+        end
+        
+        newRolls[guid]:Add(self:SerializeRollData(rollData))
+      end
+      
+      self:SetGlobalOptionConfigQuiet(newRolls, "rolls")
+    end
     
+    -- reset filters>rollType setting
+    self:ResetGlobalOptionConfigQuiet("filters", "rollType")
   end
   
   -- init roll db
   do
-    self:SetGlobalOptionQuiet(self.IndexedQueue(self:GetGlobalOptionQuiet"rolls"), "rolls")
+    for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+      self:SetGlobalOptionConfigQuiet(self.IndexedQueue(rolls), "rolls", guid)
+    end
   end
   
   if self:GetGlobalOption"version" ~= tostring(self.version) then
-    self:SetGlobalOption(tostring(self.version), "version")
+    self:SetGlobalOptionConfig(tostring(self.version), "version")
   end
 end
 
@@ -43,7 +66,7 @@ function Addon:InitProfile()
   end
   
   if self:GetOption"version" ~= tostring(self.version) then
-    self:SetOption(tostring(self.version), "version")
+    self:SetOptionConfig(tostring(self.version), "version")
   end
 end
 

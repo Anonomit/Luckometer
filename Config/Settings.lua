@@ -33,10 +33,15 @@ function Addon:MakeDefaultOptions()
             min    = 1,
             max    = Addon.MAX_LEVEL,
           },
-          rollType = {
+          rollMethod = {
             group  = true,
             manual = true,
           },
+          -- rollType = {
+          --   true,
+          --   true,
+          --   true,
+          -- },
           rollWon = {
             [0] = true,
             [1] = true,

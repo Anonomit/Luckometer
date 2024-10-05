@@ -22,12 +22,20 @@ local function VerifyRollData(rollData)
   return rollData
 end
 function Addon:SerializeRollData(rollData)
+  if rollData.min == 1 then
+    rollData.min = nil
+  end
+  if rollData.max == 100 then
+    rollData.max = nil
+  end
+  
   return AceSerializer:Serialize(VerifyRollData(rollData))
 end
-function Addon:DeserializeRollData(rollString)
+function Addon:DeserializeRollData(rollString, guid)
   local rollData = VerifyRollData(select(2, AceSerializer:Deserialize(rollString)))
-  Addon:StoreDefault(rollData, "min", 1)
-  Addon:StoreDefault(rollData, "max", 100)
+  Addon:StoreDefault(rollData, "min",  1)
+  Addon:StoreDefault(rollData, "max",  100)
+  Addon:StoreDefault(rollData, "guid", guid) -- don't overwrite if guid already exists due to old db
   return rollData
 end
 
@@ -81,9 +89,14 @@ function Addon:DeleteCharacter(guid)
   self:ResetGlobalOptionConfigQuiet("filters", "character", guid)
   self:ResetGlobalOptionConfigQuiet("characters", guid)
   
-  local count = self:DeleteRolls(function(rollData) return rollData.guid == guid end)
-  Addon:DebugfIfOutput("charDeleted", "Deleted %s and %d |4roll:rolls;", nameRealm, count)
+  local count = self:GetGlobalOptionQuiet("rolls", guid):GetCount()
+  self:ResetGlobalOptionConfigQuiet("rolls", guid)
   
+  self:DebugfIfOutput("charDeleted", "Deleted %s and %d |4roll:rolls;", nameRealm, count)
+  
+  if count > 0 then
+    self:NotifyChange()
+  end
   return count
 end
 
@@ -98,20 +111,18 @@ function Addon:StoreRoll(rollData)
   
   StoreCharacter()
   
-  rollData.guid  = self.MY_GUID
+  -- rollData.guid  = self.MY_GUID
   rollData.level = self.MY_LEVEL
   
-  if rollData.min == 1 then
-    rollData.min = nil
-  end
-  if rollData.max == 100 then
-    rollData.max = nil
-  end
+  local guid = self.MY_GUID
   
   local rollString = self:SerializeRollData(rollData)
-  local rolls = self:GetGlobalOptionQuiet"rolls"
-  rolls:Add(rollString)
-  self:SetGlobalOptionConfigQuiet(rolls, "rolls") -- run callbacks
+  local rolls = self:GetGlobalOptionQuiet("rolls")
+  if not rolls[guid] then
+    rolls[guid] = self.IndexedQueue()
+  end
+  rolls[guid]:Add(rollString)
+  self:SetGlobalOptionConfigQuiet(rolls[guid], "rolls", guid) -- run callbacks
   
   self:DebugfIfOutput("rollAdded", "Roll added: %d (%d-%d)", rollData.roll, rollData.min or 1, rollData.max or 100)
   
@@ -120,44 +131,41 @@ end
 
 
 
-function Addon:DeleteRolls(filt)
-  local rolls = Addon:GetGlobalOptionQuiet("rolls")
+-- function Addon:DeleteRolls(filt)
+--   local rolls = Addon:GetGlobalOptionQuiet("rolls")
   
-  local count = 0
-  for i, rollString in rolls:iter() do
-    local rollData = Addon:DeserializeRollData(rollString)
-    if filt(rollData) then
-      count = count + 1
-      rolls:Remove(i)
-    end
-  end
-  if count > 0 then
-    rolls:Defrag()
-    Addon:SetGlobalOptionConfigQuiet(rolls, "rolls") -- run callbacks
-  end
+--   local count = 0
+--   for i, rollString in rolls:iter() do
+--     local rollData = Addon:DeserializeRollData(rollString)
+--     if filt(rollData) then
+--       count = count + 1
+--       rolls:Remove(i)
+--     end
+--   end
+--   if count > 0 then
+--     rolls:Defrag()
+--     Addon:SetGlobalOptionConfigQuiet(rolls, "rolls") -- run callbacks
+--   end
   
-  return count
-end
+--   return count
+-- end
 
-function Addon:CountRolls(filt)
-  local rolls = Addon:GetGlobalOptionQuiet("rolls")
+-- function Addon:CountRolls(filt)
+--   local rolls = Addon:GetGlobalOptionQuiet("rolls")
   
-  local count = 0
-  for i, rollString in rolls:iter() do
-    local rollData = Addon:DeserializeRollData(rollString)
-    if filt(rollData) then
-      count = count + 1
-    end
-  end
+--   local count = 0
+--   for i, rollString in rolls:iter() do
+--     local rollData = Addon:DeserializeRollData(rollString)
+--     if filt(rollData) then
+--       count = count + 1
+--     end
+--   end
   
-  return count
-end
+--   return count
+-- end
 
 
-function Addon:ClearRolls()
-  Addon:GetGlobalOptionQuiet("rolls"):Wipe()
-  self:NotifyChange()
-end
+
 
 
 
@@ -166,18 +174,68 @@ end
 do
   local memo = {}
   
-  function Addon:GetRealmFromGUID(guid)
+  function Addon:GetRaceFromGUID(guid)
     if not memo[guid] then
-      local realmID = tonumber(strMatch(guid, "Player%-([^%-]+)%-"))
-      self:Assertf(realmID, "Could not get realm id from guid %s", tostring(guid))
-      local realmName = self:GetGlobalOption("realms", realmID)
-      self:Assertf(realmName, "Could not get realm name from guid %s", tostring(guid))
-      memo[guid] = {realmID, realmName}
+      local charData = self:GetGlobalOptionQuiet("characters", guid)
+      self:Assertf(charData, "Could not find data for character with guid %s", tostring(guid))
+      
+      local race = charData.race
+      self:Assertf(race, "Could not find race for character with guid %s", tostring(guid))
+      
+      memo[guid] = race
     end
     
-    return unpack(memo[guid])
+    return memo[guid]
   end
 end
+
+
+do
+  local memo = {}
+  
+  function Addon:GetLocalFactionFromGUID(guid)
+    if not memo[guid] then
+      local race = self:GetRaceFromGUID(guid)
+      
+      local faction = C_CreatureInfo.GetFactionInfo(race)
+      if faction then
+        faction = faction.name
+      else
+        faction = self.L["Unknown"]
+      end
+      if faction == "" then
+        faction = self.L["Neutral"]
+      end
+      
+      memo[guid] = faction
+    end
+    
+    return memo[guid]
+  end
+end
+
+do
+  local memo = {}
+  
+  function Addon:GetFactionFromGUID(guid)
+    if not memo[guid] then
+      local race = self:GetRaceFromGUID(guid)
+      
+      local faction = C_CreatureInfo.GetFactionInfo(race)
+      if faction then
+        faction = faction.groupTag
+      else
+        faction = "Unknown"
+      end
+      
+      memo[guid] = faction
+    end
+    
+    return memo[guid]
+  end
+end
+
+
 
 
 do
@@ -197,7 +255,6 @@ do
     return memo[guid]
   end
 end
-
 
 do
   local memo = {}
@@ -227,13 +284,52 @@ end
 do
   local memo = {}
   
-  function Addon:GetColoredNameRealmFromGUID(guid)
+  function Addon:GetRealmFromGUID(guid)
     if not memo[guid] then
-      local coloredName = self:GetColoredNameFromGUID(guid)
+      local realmID = tonumber(strMatch(guid, "Player%-([^%-]+)%-"))
+      self:Assertf(realmID, "Could not get realm id from guid %s", tostring(guid))
+      local realmName = self:GetGlobalOption("realms", realmID)
+      self:Assertf(realmName, "Could not get realm name from guid %s", tostring(guid))
+      memo[guid] = {realmID, realmName}
+    end
+    
+    return unpack(memo[guid])
+  end
+end
+
+do
+  local memo = {}
+  
+  function Addon:GetColoredRealmFromGUID(guid)
+    if not memo[guid] then
       local realmID, realmName = self:GetRealmFromGUID(guid)
       
+      local faction = self:GetFactionFromGUID(guid)
+      local hex = self:Switch(faction, {
+        Alliance = "79b7fc",
+        Horde    = "ff5f5b",
+        Neutral  = "ffd706",
+        Unknown  = "ffffff",
+      })
       
-      memo[guid] = format("%s-%s", coloredName, realmName)
+      memo[guid] = Addon:MakeColorCode(hex, realmName)
+    end
+    
+    return memo[guid]
+  end
+end
+
+
+do
+  local memo = {}
+  
+  function Addon:GetColoredNameRealmFromGUID(guid)
+    if not memo[guid] then
+      local coloredName  = self:GetColoredNameFromGUID(guid)
+      local coloredRealm = self:GetColoredRealmFromGUID(guid)
+      
+      
+      memo[guid] = format("%s-%s", coloredName, coloredRealm)
     end
     
     return memo[guid]

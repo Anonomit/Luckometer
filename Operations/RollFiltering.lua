@@ -56,16 +56,16 @@ local manualFilters = {
 }
 
 local filters = {
-  rollType = function(rollData)
+  rollMethod = function(rollData)
     if rollData.manual then
-      return GetOptionBool("rollType", "manual")
+      return GetOptionBool("rollMethod", "manual")
     else
-      return GetOptionBool("rollType", "group")
+      return GetOptionBool("rollMethod", "group")
     end
   end,
-  character = function(rollData)
-    return GetOptionBool("character", rollData.guid)
-  end,
+  -- character = function(rollData)
+  --   return GetOptionBool("character", rollData.guid)
+  -- end,
   characterLevel = function(rollData)
     if not GetOptionBool("characterLevel", "enable") then return true end
     
@@ -99,7 +99,7 @@ do
   local requiresCache
   
   local function DoFiltersRequireCache_Helper()
-    if GetOptionBool("rollType", "group") then
+    if GetOptionBool("rollMethod", "group") then
       -- I could test each type of filter to see if any of them actually exclude anything
       return true
     end
@@ -147,7 +147,6 @@ end
 
 
 do
-  
   -- how many steps to perform at a time
   local CALCULATION_SPEED = 100
   
@@ -166,7 +165,6 @@ do
       calculationSpeed = CALCULATION_SPEED
     end
     
-    local rolls = Addon:GetGlobalOptionQuiet"rolls"
     data.filteredRolls = {}
     local filteredRolls = data.filteredRolls
     
@@ -176,27 +174,31 @@ do
     local itemsInCache = {}
     
     -- gather rolls from db
-    for i, rollString in rolls:iter() do
-      count = count + 1
-      
-      local rollData = Addon:DeserializeRollData(rollString)
-      deserializedRolls[#deserializedRolls+1] = rollData
-      
-      if rollData.itemLink then
-        rollData.item = Addon.ItemCache(rollData.itemLink)
-      end
-        
-      if not CanFilter(rollData) then
-        if not itemsInCache[rollData.item] then
-          itemsInCache[rollData.item]   = true
-          itemsToCache[#itemsToCache+1] = rollData.item
+    for guid, rolls in pairs(Addon:GetGlobalOptionQuiet"rolls") do
+      if Addon:GetGlobalOption("filters", "character", guid) then
+        for i, rollString in rolls:iter() do
+          count = count + 1
+          
+          local rollData = Addon:DeserializeRollData(rollString, guid)
+          deserializedRolls[#deserializedRolls+1] = rollData
+          
+          if rollData.itemLink then
+            rollData.item = Addon.ItemCache(rollData.itemLink)
+          end
+            
+          if not CanFilter(rollData) then
+            if not itemsInCache[rollData.item] then
+              itemsInCache[rollData.item]   = true
+              itemsToCache[#itemsToCache+1] = rollData.item
+            end
+          end
+          
+          if count % calculationSpeed == 0 then
+            Addon:DebugIfOutput("rollFilterProgress", "Roll filtering is collecting rolls")
+            coroutine.yield()
+            count = 0
+          end
         end
-      end
-      
-      if count % calculationSpeed == 0 then
-        Addon:DebugIfOutput("rollFilterProgress", "Roll filtering is collecting rolls")
-        coroutine.yield()
-        count = 0
       end
     end
     

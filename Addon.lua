@@ -10,66 +10,59 @@ local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
 
 
 
+local dbInitFuncs
 
-function Addon:InitDB()
-  local configVersion = self.SemVer(self:GetGlobalOption"version" or tostring(self.version))
+do
+  local self = Addon
   
+  local shared = {}
   
-  if not self:GetGlobalOption"version" then -- first run
-  
-  else -- upgrade data schema
-    if configVersion <= self.SemVer"1.2.0" then
-      -- separate rolls by guid
-      local newRolls = {}
-      
-      local rolls = self.IndexedQueue(self:GetGlobalOptionQuiet"rolls")
-      for i, rollString in rolls:iter() do
-        local rollData = self:DeserializeRollData(rollString)
+  dbInitFuncs = {
+    profile = {
+      FirstRun = nil,
+      upgrades = {
         
-        local guid = rollData.guid
-        rollData.guid = nil
-        if not newRolls[guid] then
-          newRolls[guid] = self.IndexedQueue()
+      },
+      AlwaysRun = nil,
+    },
+    global = {
+      FirstRun = nil,
+      upgrades = {
+        ["1.3.0"] = function()
+        
+          -- separate rolls by guid
+          local newRolls = {}
+          
+          local rolls = self:GetGlobalOptionQuiet"rolls"
+          rolls.next = nil -- update IndexedQueue schema
+          
+          for i, rollString in self.IndexedQueue.iter(rolls) do
+            local rollData = self:DeserializeRollData(rollString, i)
+            
+            local guid = rollData.guid
+            rollData.guid = nil
+            if not newRolls[guid] then
+              newRolls[guid] = self.IndexedQueue()
+            end
+            
+            newRolls[guid]:Add(self:SerializeRollData(rollData))
+          end
+          self:SetGlobalOptionConfigQuiet(newRolls, "rolls")
+          
+          
+          -- reset filters setting
+          self:ResetGlobalOptionConfigQuiet"filters"
+        end,
+      },
+      AlwaysRun = function()
+        for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+          self:SetGlobalOptionConfigQuiet(self.IndexedQueue(rolls), "rolls", guid)
         end
-        
-        newRolls[guid]:Add(self:SerializeRollData(rollData))
-      end
-      
-      self:SetGlobalOptionConfigQuiet(newRolls, "rolls")
-      
-      -- reset filters setting
-      self:ResetGlobalOptionConfigQuiet("filters")
-    end
-  end
-  
-  
-  -- init roll db
-  do
-    for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
-      self:SetGlobalOptionConfigQuiet(self.IndexedQueue(rolls), "rolls", guid)
-    end
-  end
-  
-  if self:GetGlobalOption"version" ~= tostring(self.version) then
-    self:SetGlobalOptionConfig(tostring(self.version), "version")
-  end
+      end,
+    },
+  }
 end
 
-
-function Addon:InitProfile()
-  local configVersion = self.SemVer(self:GetOption"version" or tostring(self.version))
-  
-  
-  if not self:GetOption"version" then -- first run
-  
-  else -- upgrade data schema
-    
-  end
-  
-  if self:GetOption"version" ~= tostring(self.version) then
-    self:SetOptionConfig(tostring(self.version), "version")
-  end
-end
 
 
 function Addon:OnInitialize()
@@ -81,11 +74,11 @@ end
 
 function Addon:OnEnable()
   self.version = self.SemVer(GetAddOnMetadata(ADDON_NAME, "Version"))
-  self:InitDB()
-  self:InitProfile()
-  self:GetDB().RegisterCallback(self, "OnProfileChanged", "InitProfile")
-  self:GetDB().RegisterCallback(self, "OnProfileCopied" , "InitProfile")
-  self:GetDB().RegisterCallback(self, "OnProfileReset"  , "InitProfile")
+  self:InitDB(dbInitFuncs, "global")
+  self:InitDB(dbInitFuncs, "profile")
+  self:GetDB().RegisterCallback(self, "OnProfileChanged", function() self:InitDB(dbInitFuncs, "profile") end)
+  self:GetDB().RegisterCallback(self, "OnProfileCopied" , function() self:InitDB(dbInitFuncs, "profile") end)
+  self:GetDB().RegisterCallback(self, "OnProfileReset"  , function() self:InitDB(dbInitFuncs, "profile") end)
   
   self:InitChatCommands("lucky", "lm", "lom", "lucko", "luck-o-meter", "luck-o-metre", "luckometre", ADDON_NAME:lower())
   

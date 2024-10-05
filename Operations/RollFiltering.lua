@@ -173,14 +173,18 @@ do
     local itemsToCache = {}
     local itemsInCache = {}
     
+    
     -- gather rolls from db
     for guid, rolls in pairs(Addon:GetGlobalOptionQuiet"rolls") do
       if Addon:GetGlobalOption("filters", "character", "guid", guid) then
+        local store = {}
+        deserializedRolls[#deserializedRolls+1] = store
+        
         for i, rollString in rolls:iter() do
           count = count + 1
           
-          local rollData = Addon:DeserializeRollData(rollString, guid)
-          deserializedRolls[#deserializedRolls+1] = rollData
+          local rollData = Addon:DeserializeRollData(rollString, i, guid)
+          store[#store+1] = rollData
           
           if rollData.itemLink then
             rollData.item = Addon.ItemCache(rollData.itemLink)
@@ -199,8 +203,18 @@ do
             count = 0
           end
         end
+        if #store == 0 then
+          deserializedRolls[#deserializedRolls] = nil
+        else
+          deserializedRolls[#deserializedRolls] = {ipairs(store)}
+        end
       end
     end
+    
+    
+    -- sort deserialized rolls
+    local deserializedRolls = Addon:MergeSorted(deserializedRolls)
+    
     
     -- cache missing items
     if #itemsToCache > 0 then
@@ -213,6 +227,7 @@ do
       end
       Addon:DebugIfOutput("rollItemsCached", "Items cached")
     end
+    
     
     -- do some math with the rolls
     local completed, totalRoll, totalScore = 0, 0, 0
@@ -240,6 +255,8 @@ do
       end
     end
     
+    
+    -- calculate the totals
     local avgRoll, avgScore = 0, 0
     if #filteredRolls > 0 then
       avgRoll  = totalRoll  / #filteredRolls

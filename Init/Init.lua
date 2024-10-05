@@ -123,6 +123,7 @@ do
   end
   
   
+  -- shows a lua warning in the chat frame, if lua warnings are enabled in debug settings
   local function Warn(self, methodName, ...)
     if not ShouldShowWarnings() then return end
     return self[methodName](self, ...)
@@ -196,7 +197,7 @@ do
       end
       return nop
     end
-    -- calls func in protected mode. errors are announced and then passed to errFunc. errFunc errors silently. non-blocking.
+    -- calls func in protected mode. errors are announced (if lua errors are enabled in debug settings) and then passed to errFunc. errFunc errors silently. non-blocking.
     function Addon:xpcall(func, errFunc)
       return xpcall(func, GetErrorHandler(errFunc))
     end
@@ -204,7 +205,7 @@ do
     function Addon:xpcallSilent(func, errFunc)
       return xpcall(func, errFunc or nop)
     end
-    -- calls func in protected mode. errors passed to errFunc. non-blocking, unless errFunc errors.
+    -- calls func in protected mode. errors silently passed to errFunc. blocking, as long as errFunc errors. error is never silent.
     function Addon:pcall(func, errFunc)
       local t = {pcall(func)}
       if not t[1] then
@@ -212,7 +213,7 @@ do
       end
       return unpack(t, 2)
     end
-    -- Creates a non-blocking error.
+    -- Creates a non-blocking error. only announces error if lua errors are enabled in debug settings.
     function Addon:Throw(...)
       if Addon:IsDebugEnabled() and ShouldShowLuaErrors() then
         geterrorhandler()(...)
@@ -223,7 +224,7 @@ do
       local count = select("#", ...)
       self:xpcall(function() self:Throw(format(unpack(args, 1, count))) end)
     end
-    -- Creates a non-blocking error if bool is falsy.
+    -- Creates a non-blocking error if bool is falsy. errors are only announced if lua errors are enabled in debug settings.
     function Addon:ThrowAssert(bool, ...)
       if bool then return bool end
       if Addon:IsDebugEnabled() and ShouldShowLuaErrors() then
@@ -238,7 +239,7 @@ do
       self:xpcall(function() self:Throw(format(unpack(args, 1, count))) end)
       return false
     end
-    -- Creates a blocking error.
+    -- Creates a blocking error. error is never silent.
     function Addon:Error(str)
       error(str, 2)
     end
@@ -251,7 +252,7 @@ do
     function Addon:ErrorfLevel(lvl, ...)
       error(format(...), lvl + 1)
     end
-    -- Creates a blocking error if bool is falsy.
+    -- Creates a blocking error if bool is falsy. error is never silent.
     function Addon:Assert(bool, str)
       if not bool then
         error(str, 2)
@@ -401,11 +402,12 @@ do
     return sum
   end
   
+  -- IndexedQueue
   do
-    local function GetPre(t, i)
+    local function GetPrev(t, i)
       return Addon:CheckTable(t, "links", i, 1) or i-1
     end
-    local function GetNex(t, i)
+    local function GetNext(t, i)
       return Addon:CheckTable(t, "links", i, 2) or i+1
     end
     local function Link(t, pre, nex)
@@ -440,13 +442,12 @@ do
     
     local IndexedQueue = setmetatable({}, {__call = function(self, ...) return self:Create(...) end})
     Addon.IndexedQueue = IndexedQueue
-    local meta = {}
     
     function IndexedQueue:Add(v)
       Addon:AssertfLevel(2, v ~= nil, "Attempted to add a nil value")
       
-      local id  = Addon:CheckTable(self, "next")
-      Addon:StoreInTable(self, "next", id + 1)
+      local id  = Addon:CheckTable(self, "nextIndex")
+      Addon:StoreInTable(self, "nextIndex", id + 1)
       
       local pre = Addon:CheckTable(self, "tail")
       if pre then
@@ -469,8 +470,8 @@ do
       local v = rawget(Addon:CheckTable(self, "actual"), id)
       Addon:AssertfLevel(2, v ~= nil, "Attempted to remove a nil value from index: %s (%s)", tostring(id), type(id))
       
-      local pre = GetPre(self, id)
-      local nex = GetNex(self, id)
+      local pre = GetPrev(self, id)
+      local nex = GetNext(self, id)
       if Addon:CheckTable(self, "links", id) then
         Addon:RemoveInTable(self, "links", id)
       end
@@ -515,13 +516,13 @@ do
       Addon:RemoveInTable(self, "head")
       Addon:RemoveInTable(self, "tail")
       Addon:StoreInTable(self,  "count", 0)
-      Addon:StoreInTable(self,  "next",  1)
+      Addon:StoreInTable(self,  "nextIndex",  1)
       
       return self
     end
     
     function IndexedQueue:CanDefrag()
-      return Addon:CheckTable(self, "next") ~= Addon:CheckTable(self, "count") + 1
+      return Addon:CheckTable(self, "nextIndex") ~= Addon:CheckTable(self, "count") + 1
     end
     
     function IndexedQueue:Defrag()
@@ -543,9 +544,9 @@ do
         nex = nex + 1
       end
       Addon:RemoveInTable(self, "links")
-      Addon:StoreInTable(self,  "next", nex)
-      Addon:StoreInTable(self,  "head", head)
-      Addon:StoreInTable(self,  "tail", tail)
+      Addon:StoreInTable(self, "nextIndex", nex)
+      Addon:StoreInTable(self, "head",      head)
+      Addon:StoreInTable(self, "tail",      tail)
       
       return self
     end
@@ -554,28 +555,38 @@ do
       return Addon:CheckTable(self, "count")
     end
     
-    function IndexedQueue:iter()
-      local nex = Addon:CheckTable(self, "head")
-      return function()
-        local id = nex
-        local v = rawget(Addon:CheckTable(self, "actual"), id)
-        if v ~= nil then
-          nex = GetNex(self, id)
-          return id, v
-        end
+    function IndexedQueue:next(id)
+      if id ~= nil then
+        id = GetNext(self, id)
+      else
+        id = Addon:CheckTable(self, "head")
+      end
+      if not id then return end
+      local v = rawget(Addon:CheckTable(self, "actual"), id)
+      if v ~= nil then
+        return id, v
       end
     end
     
-    function IndexedQueue:riter()
-      local nex = Addon:CheckTable(self, "tail")
-      return function()
-        local id = nex
-        local v = rawget(Addon:CheckTable(self, "actual"), id)
-        if v ~= nil then
-          nex = GetPre(self, id)
-          return id, v
-        end
+    function IndexedQueue:prev(id)
+      if id ~= nil then
+        id = GetPrev(self, id)
+      else
+        id = Addon:CheckTable(self, "tail")
       end
+      if not id then return end
+      local v = rawget(Addon:CheckTable(self, "actual"), id)
+      if v ~= nil then
+        return id, v
+      end
+    end
+    
+    function IndexedQueue:iter()
+      return IndexedQueue.next, self, nil
+    end
+    
+    function IndexedQueue:riter()
+      return IndexedQueue.prev, self, nil
     end
     
     local meta = {
@@ -604,8 +615,8 @@ do
       
       local actual = Addon:CheckTable(t, "actual")
       
-      Addon:StoreDefault(t, "count", #actual)
-      Addon:StoreDefault(t, "next",  #actual + 1)
+      Addon:StoreDefault(t, "count",     #actual)
+      Addon:StoreDefault(t, "nextIndex", #actual + 1)
       
       if next(actual) ~= nil then
         if not Addon:CheckTable(t, "head") then
@@ -619,6 +630,185 @@ do
       end
       
       return setmetatable(t, meta)
+    end
+  end
+  
+  -- PriorityQueue
+  do
+    local PriorityQueue = setmetatable({}, {__call = function(self, ...) return self:Create(...) end})
+    Addon.PriorityQueue = PriorityQueue
+    
+    local function GetParent(i)
+      return mathFloor(i/2)
+    end
+    local function GetLeft(i)
+      return 2*i
+    end
+    local function GetRight(i)
+      return 2*i + 1
+    end
+    
+    local function Swap(actual, i, j)
+      local temp = rawget(actual, i)
+      rawset(actual, i, rawget(actual, j))
+      rawset(actual, j, temp)
+    end
+    
+    local function ShiftUp(actual, i, SortFunc)
+      if SortFunc then
+        while i > 1 and SortFunc(rawget(actual, i), rawget(actual, GetParent(i))) do
+          Swap(actual, GetParent(i), i)
+          i = GetParent(i)
+        end
+      else
+        while i > 1 and rawget(actual, i) < rawget(actual, GetParent(i)) do
+          Swap(actual, GetParent(i), i)
+          i = GetParent(i)
+        end
+      end
+    end
+    
+    local function ShiftDown(actual, i, SortFunc)
+      local max   = i
+      local left  = GetLeft(i)
+      local right = GetRight(i)
+      
+      if SortFunc then
+        if rawget(actual, left) and SortFunc(rawget(actual, left), rawget(actual, max)) then
+          max = left
+        end
+        if rawget(actual, right) and SortFunc(rawget(actual, right), rawget(actual, max)) then
+          max = right
+        end
+      else
+        if rawget(actual, left) and rawget(actual, left) < rawget(actual, max) then
+          max = left
+        end
+        if rawget(actual, right) and rawget(actual, right) < rawget(actual, max) then
+          max = right
+        end
+      end
+      
+      if i ~= max then
+        Swap(actual, i, max)
+        ShiftDown(actual, max, SortFunc)
+      end
+    end
+    
+    
+    function PriorityQueue:Add(v)
+      local actual = rawget(self, "actual")
+      local new = #actual+1
+      rawset(actual, new, v)
+      ShiftUp(actual, new, rawget(self, "SortFunc"))
+    end
+    
+    function PriorityQueue:Pop()
+      local actual = rawget(self, "actual")
+      local output = rawget(actual, 1)
+      
+      rawset(actual, 1, rawget(actual, #actual))
+      rawset(actual, #actual, nil)
+      ShiftDown(actual, 1, rawget(self, "SortFunc"))
+      
+      return output
+    end
+    
+    function PriorityQueue:Peek()
+      return Addon:CheckTable(self, "actual", 1)
+    end
+    
+    function PriorityQueue:GetActual()
+      return rawget(self, "actual")
+    end
+    
+    function PriorityQueue:Get(id)
+      Addon:AssertfLevel(2, type(id) == "number", "Attempted to access a non-number index: %s (%s)", tostring(id), type(id))
+      return Addon:CheckTable(self, "actual", id)
+    end
+    
+    
+    local meta = {
+      __index = function(self, k)
+        if PriorityQueue[k] then
+          return PriorityQueue[k]
+        else
+          return PriorityQueue.Get(self, k)
+        end
+      end,
+      __newindex = function(self, k, v)
+        Addon:Error()
+        Addon:AssertfLevel(2, v == nil, "Attempted to insert an element by index: %s = %s", tostring(k), tostring(v))
+        Addon:AssertfLevel(2, type(k) == "number", "Attempted to remove an element with an invalid key: %s (%s)", tostring(k), type(k))
+        
+        return PriorityQueue.Remove(self, k)
+      end,
+    }
+    
+    function PriorityQueue:Create(t, SortFunc)
+      t = t or {}
+      if getmetatable(t) == meta then return t end
+      
+      if Addon:CheckTable(t, "actual") == nil then
+        t = {actual = t}
+      end
+      
+      Addon:StoreDefault(t, "SortFunc", SortFunc)
+      
+      return setmetatable(t, meta)
+    end
+  end
+  
+  -- MergeSorted
+  do
+    
+    --[[
+    input = {
+      {ipairs(t1)},
+      {t2.iter},
+    }
+    ]]
+    function Addon:MergeSorted(input, SortFunc)
+      local nodeMeta = {
+        __lt = SortFunc and function(self, o)
+          return SortFunc(self.val, o.val)
+        end or function(self, o)
+          return self.val < o.val
+        end,
+      }
+      local function Node(val, row, col)
+        return setmetatable({
+          val = val,
+          row = row,
+          col = col,
+        }, nodeMeta)
+      end
+      
+      local output = {}
+      local pq = self.PriorityQueue(SortFunc)
+      
+      for row, iter in ipairs(input) do
+        local iter, a, z = unpack(iter)
+        local i, v = iter(a, z)
+        
+        if i then
+          pq:Add(Node(v, row, 1))
+        end
+      end
+      
+      while pq:Peek() do
+        local node = pq:Pop()
+        output[#output+1] = node.val
+        
+        local row = input[node.row]
+        
+        local i, v = row[1](row[2], node.col)
+        if i then
+          pq:Add(Node(v, node.row, i))
+        end
+      end
+      
+      return output
     end
   end
   
@@ -1096,9 +1286,65 @@ do
           return self[SetOptionConfigQuiet](self, Addon.Copy(self, self[GetDefaultOptionQuiet](self, ...)), ...)
         end
       end
-      
     end
   end
+  
+  
+  local function GetOrderedUpgrades(upgrades)
+    local versions = {}
+    for version, func in pairs(upgrades) do
+      versions[#versions+1] = version
+    end
+    
+    tblSort(versions, function(a, b) return Addon.SemVer(a) < Addon.SemVer(b) end)
+    
+    local i = 0
+    return function()
+      i = i + 1
+      local version = versions[i]
+      if version then
+        return version, upgrades[version]
+      end
+    end
+  end
+  
+  function Addon:InitDB(dbInitFuncs, configType)
+    local init = dbInitFuncs[configType]
+    local db = self:GetDB()[configType]
+    
+    local oldVersion = db.version
+    local currentVersion = tostring(self.version)
+    
+    if not oldVersion then
+      if init.FirstRun then
+        self:Debugf("Initializing %s db", tostring(configType))
+        
+        self:pcall(init.FirstRun, function(err)
+          self:Errorf("FirstRun failed for %s db\n%s", tostring(configType))
+        end)
+      end
+    elseif oldVersion ~= currentVersion then
+      
+      for version, Upgrade in GetOrderedUpgrades(init.upgrades) do
+        if self.SemVer(oldVersion) < self.SemVer(version) then
+          self:Debugf("Updating %s db from %s to %s", tostring(configType), tostring(oldVersion), version)
+          
+          self:pcall(Upgrade, function(err)
+            self:Errorf("Data upgrade from %s to %s failed for %s db\n%s", tostring(oldVersion), tostring(version), tostring(configType), tostring(err))
+          end)
+        end
+      end
+    end
+    
+    if init.AlwaysRun then
+      self:pcall(init.AlwaysRun, function(err)
+        self:Errorf("AlwaysRun failed for %s db\n%s", tostring(configType))
+      end)
+    end
+    
+    db.version = currentVersion
+  end
+  
 end
 
 

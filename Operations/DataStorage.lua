@@ -16,27 +16,54 @@ local strMatch = string.match
 
 
 local function VerifyRollData(rollData)
-  Addon:ThrowfAssert((rollData.max or 100) ~= (rollData.min or 1), "Roll contains no entropy. %s-%s", tostring(rollData.max or 100), tostring(rollData.min or 1))
+  Addon:ThrowfAssert(rollData.min ~= rollData.max, "Roll contains no entropy. %s-%s", tostring(rollData.min), tostring(rollData.max))
   Addon:ThrowAssert(rollData.manual or rollData.itemLink, "Group Loot roll doesn't contain an itemlink")
   
   return rollData
 end
-function Addon:SerializeRollData(rollData)
-  if rollData.min == 1 then
-    rollData.min = nil
-  end
-  if rollData.max == 100 then
-    rollData.max = nil
+
+do
+  local meta = {
+    __index = {
+      min = 1,
+      max = 100,
+    },
+    __lt = function(self, o)
+      if self.datetime ~= o.datetime then
+        return self.datetime < o.datetime
+      else
+        return self.index < o.index
+      end
+    end
+  }
+  
+  function Addon:SerializeRollData(rollData)
+    setmetatable(rollData, meta)
+    
+    if rawget(rollData, "min") == 1 then
+      rawset(rollData, "min", nil)
+    end
+    if rawget(rollData, "max") == 100 then
+      rawset(rollData, "max", nil)
+    end
+    rawset(rollData, "guid", nil)
+    
+    return AceSerializer:Serialize(VerifyRollData(rollData))
   end
   
-  return AceSerializer:Serialize(VerifyRollData(rollData))
-end
-function Addon:DeserializeRollData(rollString, guid)
-  local rollData = VerifyRollData(select(2, AceSerializer:Deserialize(rollString)))
-  Addon:StoreDefault(rollData, "min",  1)
-  Addon:StoreDefault(rollData, "max",  100)
-  Addon:StoreDefault(rollData, "guid", guid) -- don't overwrite if guid already exists due to old db
-  return rollData
+  function Addon:DeserializeRollData(rollString, i, guid)
+    local rollData = select(2, AceSerializer:Deserialize(rollString))
+    setmetatable(rollData, meta)
+    
+    if i then
+      rawset(rollData, "index", i)
+    end
+    if guid then
+      rawset(rollData, "guid", guid)
+    end
+    
+    return VerifyRollData(rollData)
+  end
 end
 
 
@@ -128,43 +155,6 @@ function Addon:StoreRoll(rollData)
   
   self:NotifyChange()
 end
-
-
-
--- function Addon:DeleteRolls(filt)
---   local rolls = Addon:GetGlobalOptionQuiet("rolls")
-  
---   local count = 0
---   for i, rollString in rolls:iter() do
---     local rollData = Addon:DeserializeRollData(rollString)
---     if filt(rollData) then
---       count = count + 1
---       rolls:Remove(i)
---     end
---   end
---   if count > 0 then
---     rolls:Defrag()
---     Addon:SetGlobalOptionConfigQuiet(rolls, "rolls") -- run callbacks
---   end
-  
---   return count
--- end
-
--- function Addon:CountRolls(filt)
---   local rolls = Addon:GetGlobalOptionQuiet("rolls")
-  
---   local count = 0
---   for i, rollString in rolls:iter() do
---     local rollData = Addon:DeserializeRollData(rollString)
---     if filt(rollData) then
---       count = count + 1
---     end
---   end
-  
---   return count
--- end
-
-
 
 
 

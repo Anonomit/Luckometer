@@ -16,7 +16,7 @@ end
 
 local groupLootFilters = {
   rollWon = function(rollData)
-    return GetOptionBool("rollWon", rollData.won and 1 or 0)
+    return GetOptionBool("group", "roll", "won", rollData.won and 1 or 0)
   end,
   itemQuality = function(rollData)
     if Addon:ThrowAssert(rollData.item, "Can't filter for quality because the roll has no item") then
@@ -24,17 +24,17 @@ local groupLootFilters = {
     end
     
     local quality = rollData.item:GetQuality()
-    return GetOptionBool("itemQuality", quality)
+    return GetOptionBool("group", "item", "quality", quality)
   end,
   itemLevel = function(rollData)
     if Addon:ThrowAssert(rollData.item, "Can't filter for item level because the roll has no item") then
       Addon:ThrowfAssert(rollData.item:IsCached(), "Can't filter for item level because item is not cached: %s", tostring(rollData.item))
     end
     
-    if not GetOptionBool("itemLevel", "enable") then return true end
+    if not GetOptionBool("group", "item", "level", "enable") then return true end
     
     local itemLevel = rollData.item:GetLevel()
-    return itemLevel >= Addon:GetGlobalOption("filters", "itemLevel", "min") and itemLevel <= Addon:GetGlobalOption("filters", "itemLevel", "max")
+    return itemLevel >= Addon:GetGlobalOption("filters", "group", "item", "level", "min") and itemLevel <= Addon:GetGlobalOption("filters", "group", "item", "level", "max")
   end,
 }
 
@@ -42,35 +42,35 @@ local manualFilters = {
   rollMin = function(rollData)
     Addon:ThrowAssert(rollData.min, "Can't filter for roll minimum because the roll has no minimum")
     
-    if not GetOptionBool("rollLimits", "min", "enable") then return true end
+    if not GetOptionBool("manual", "roll", "limits", "min", "enable") then return true end
     
-    return rollData.min >= GetOptionBool("rollLimits", "min", "min") and rollData.min <= GetOptionBool("rollLimits", "min", "max")
+    return rollData.min >= GetOptionBool("manual", "roll", "limits", "min", "min") and rollData.min <= GetOptionBool("manual", "roll", "limits", "min", "max")
   end,
   rollMax = function(rollData)
     Addon:ThrowAssert(rollData.max, "Can't filter for roll minimum because the roll has no minimum")
     
-    if not GetOptionBool("rollLimits", "max", "enable") then return true end
+    if not GetOptionBool("manual", "roll", "limits", "max", "enable") then return true end
     
-    return rollData.max >= GetOptionBool("rollLimits", "max", "min") and rollData.max <= GetOptionBool("rollLimits", "max", "max")
+    return rollData.max >= GetOptionBool("manual", "roll", "limits", "max", "min") and rollData.max <= GetOptionBool("manual", "roll", "limits", "max", "max")
   end,
 }
 
 local filters = {
   rollMethod = function(rollData)
     if rollData.manual then
-      return GetOptionBool("rollMethod", "manual")
+      return GetOptionBool("manual", "enable")
     else
-      return GetOptionBool("rollMethod", "group")
+      return GetOptionBool("group", "enable")
     end
   end,
   -- character = function(rollData)
   --   return GetOptionBool("character", rollData.guid)
   -- end,
   characterLevel = function(rollData)
-    if not GetOptionBool("characterLevel", "enable") then return true end
+    if not GetOptionBool("character", "level", "enable") then return true end
     
     local characterLevel = rollData.level
-    return characterLevel >= Addon:GetGlobalOption("filters", "characterLevel", "min") and characterLevel <= Addon:GetGlobalOption("filters", "characterLevel", "max")
+    return characterLevel >= Addon:GetGlobalOption("filters", "character", "level", "min") and characterLevel <= Addon:GetGlobalOption("filters", "character", "level", "max")
   end,
 }
 
@@ -99,7 +99,7 @@ do
   local requiresCache
   
   local function DoFiltersRequireCache_Helper()
-    if GetOptionBool("rollMethod", "group") then
+    if GetOptionBool("group", "enable") then
       -- I could test each type of filter to see if any of them actually exclude anything
       return true
     end
@@ -175,7 +175,7 @@ do
     
     -- gather rolls from db
     for guid, rolls in pairs(Addon:GetGlobalOptionQuiet"rolls") do
-      if Addon:GetGlobalOption("filters", "character", guid) then
+      if Addon:GetGlobalOption("filters", "character", "guid", guid) then
         for i, rollString in rolls:iter() do
           count = count + 1
           

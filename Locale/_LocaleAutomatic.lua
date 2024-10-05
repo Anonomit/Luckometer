@@ -163,6 +163,7 @@ L["Classes: %s"] = ITEM_CLASSES_ALLOWED
 L["%s rolls %d (%d-%d)"] = RANDOM_ROLL_RESULT
 
 
+
 L["Stats"]             = PET_BATTLE_STATS_LABEL
 L["Filters"]           = FILTERS
 L["Character"]         = CHARACTER
@@ -187,8 +188,6 @@ L["Obliterate"]        = OBLITERATE_BUTTON
 
 L["Group Loot"]        = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
 L["/roll"]             = SLASH_RANDOM7
-L["Loot Roll"]         = LOOT_ROLL
-L["Loot Rolls"]        = LOOT_ROLLS
 L["Win"]               = WIN
 L["Item Quality"]      = COLORBLIND_ITEM_QUALITY
 L["Item Level"]        = LFG_LIST_ITEM_LEVEL_INSTR_SHORT
@@ -196,9 +195,12 @@ L["Limit to %s"]       = LFG_LIST_CROSS_FACTION
 L["Unlimited"]         = UNLIMITED
 
 
-L["Click to Research"] = ORDER_HALL_TALENT_RESEARCH
-L["Processing..."]     = BLIZZARD_STORE_PROCESSING
-L["Research Complete"] = GARRISON_TALENT_RESEARCH_COMPLETE
+L["Loot Roll"]               = LOOT_ROLL
+L["Loot Rolls"]              = LOOT_ROLLS
+L["|4Loot Roll:Loot Rolls;"] = function() return format("|4%s:%s;", LOOT_ROLL, LOOT_ROLLS) end
+L["Click to Research"]       = ORDER_HALL_TALENT_RESEARCH
+L["Processing..."]           = BLIZZARD_STORE_PROCESSING
+L["Research Complete"]       = GARRISON_TALENT_RESEARCH_COMPLETE
 
 L["Total"]   = TOTAL
 L["Average"] = GMSURVEYRATING3

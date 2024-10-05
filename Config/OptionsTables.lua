@@ -175,6 +175,13 @@ local function MakeStatsOptions(opts, categoryName)
       do
         local opts = GUI:CreateGroup(opts, self.L["Select"], self.L["Select"], nil, "tab")
         
+        local totalRolls = 0
+        for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+          if self:GetGlobalOption("filters", "character", "guid", guid) then
+            totalRolls = totalRolls + rolls:GetCount()
+          end
+        end
+        
         local sexes    = {}
         local factions = {}
         for guid, charData in pairs(self:GetGlobalOptionQuiet"characters") do
@@ -186,18 +193,18 @@ local function MakeStatsOptions(opts, categoryName)
           local opts = GUI:CreateGroupBox(opts, self.L["Select"])
           
           GUI:CreateExecute(opts, "All", self.L["All"], desc, function()
-            self:ResetGlobalOptionConfigQuiet("filters", "character")
+            self:ResetGlobalOptionConfigQuiet("filters", "character", "guid")
             self:NotifyChange()
           end, disabled).width = 0.5
           GUI:CreateExecute(opts, "None", self.L["None"], desc, function()
             for guid in pairs(self:GetGlobalOptionQuiet"characters") do
-              self:SetGlobalOptionConfig(false, "filters", "character", guid)
+              self:SetGlobalOptionConfig(false, "filters", "character", "guid", guid)
             end
             self:NotifyChange()
           end, disabled).width = 0.5
           GUI:CreateExecute(opts, "Me", self.L["Me"], desc, function()
             for guid in pairs(self:GetGlobalOptionQuiet"characters") do
-              self:SetGlobalOptionConfig(guid == self.MY_GUID, "filters", "character", guid)
+              self:SetGlobalOptionConfig(guid == self.MY_GUID, "filters", "character", "guid", guid)
             end
             self:NotifyChange()
           end, disabled).width = 0.5
@@ -208,7 +215,7 @@ local function MakeStatsOptions(opts, categoryName)
               if factions[faction] then
                 GUI:CreateExecute(opts, faction, self.L[faction], desc, function()
                   for guid, charData in pairs(self:GetGlobalOptionQuiet"characters") do
-                    self:SetGlobalOptionConfig(self:GetFactionFromGUID(guid) == faction, "filters", "character", guid)
+                    self:SetGlobalOptionConfig(self:GetFactionFromGUID(guid) == faction, "filters", "character", "guid", guid)
                   end
                   self:NotifyChange()
                 end, disabled).width = 0.5
@@ -222,26 +229,22 @@ local function MakeStatsOptions(opts, categoryName)
             for _, sex in ipairs{"Male", "Female"} do
               GUI:CreateExecute(opts, sex, self.L[sex], desc, function()
                 for guid, charData in pairs(self:GetGlobalOptionQuiet"characters") do
-                  self:SetGlobalOptionConfig(charData.sex == SEX_IDS[sex], "filters", "character", guid)
+                  self:SetGlobalOptionConfig(charData.sex == SEX_IDS[sex], "filters", "character", "guid", guid)
                 end
                 self:NotifyChange()
               end, disabled).width = 0.5
             end
           end
+          
+          GUI:CreateDescription(opts, format("%d %s", totalRolls, self.L["|4Loot Roll:Loot Rolls;"]))
         end
         
         GUI:CreateNewline(opts)
         
-        local realmIDs   = {}
-        local orderedGUIDs = GetOrderedGUIDS()
-        local validFilter = false
-        for i, guid in ipairs(orderedGUIDs) do
-          validFilter = validFilter or self:GetGlobalOptionQuiet("filters", "character", guid)
-          if validFilter then break end
-        end
-        
         local oldOpts = opts
-        for i, guid in ipairs(orderedGUIDs) do
+        
+        local realmIDs = {}
+        for i, guid in ipairs(GetOrderedGUIDS()) do
           local realmID, realmName = self:GetRealmFromGUID(guid)
           local newRealmID = false
           if realmIDs[#realmIDs] ~= realmName then
@@ -258,7 +261,7 @@ local function MakeStatsOptions(opts, categoryName)
             GUI:CreateExecute(opts, "Enable" .. realmID, self.L["Enable All"], desc, function()
               for guid in pairs(self:GetGlobalOptionQuiet"characters") do
                 if self:GetRealmFromGUID(guid) == realmID then
-                  self:SetGlobalOptionConfig(true, "filters", "character", guid)
+                  self:SetGlobalOptionConfig(true, "filters", "character", "guid", guid)
                 end
               end
               self:NotifyChange()
@@ -266,7 +269,7 @@ local function MakeStatsOptions(opts, categoryName)
             GUI:CreateExecute(opts, "Disable" .. realmID, self.L["Disable All"], desc, function()
               for guid in pairs(self:GetGlobalOptionQuiet"characters") do
                 if self:GetRealmFromGUID(guid) == realmID then
-                  self:SetGlobalOptionConfig(false, "filters", "character", guid)
+                  self:SetGlobalOptionConfig(false, "filters", "character", "guid", guid)
                 end
               end
               self:NotifyChange()
@@ -274,17 +277,18 @@ local function MakeStatsOptions(opts, categoryName)
           end
           
           local nameRealm
-          if validFilter then
+          if totalRolls ~= 0 then
             nameRealm = self:GetColoredNameRealmFromGUID(guid)
           else
-            nameRealm = self:MakeColorCode("ff0000", format("%s-%s", self:GetNameFromGUID(guid), realmName))
+            nameRealm = format("%s%s-%s", self:MakeColorCode"ff0000", self:GetNameFromGUID(guid), realmName)
           end
           
           GUI:CreateNewline(opts)
-          GUI:CreateToggle(opts, {"filters", "character", guid}, nameRealm, nil, disabled).width = 1.2
+          local charRolls = self:GetGlobalOptionQuiet("rolls", guid):GetCount()
+          GUI:CreateToggle(opts, {"filters", "character", "guid", guid}, format("%s  (%d %s)", nameRealm, charRolls, self.L["|4Loot Roll:Loot Rolls;"]), nil, disabled).width = 1.8
           local option = GUI:CreateExecute(opts, "Obliterate", self.L["Obliterate"], desc, function() self:DeleteCharacter(guid) end, disabled)
           option.width = 0.7
-          option.confirm = function() return format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], self:GetColoredNameRealmFromGUID(guid)) end
+          option.confirm = function() return format("%s|n|n%d %s", format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], self:GetColoredNameRealmFromGUID(guid)), charRolls, self.L["|4Loot Roll:Loot Rolls;"]) end
         end
         opts = oldOpts
       end
@@ -299,28 +303,28 @@ local function MakeStatsOptions(opts, categoryName)
           local opts = GUI:CreateGroupBox(opts, self.L["Select"])
           
           GUI:CreateExecute(opts, "Unlimited", self.L["Unlimited"], desc, function()
-            self:SetGlobalOptionConfig(false,       "filters", "characterLevel", "enable")
-            self:SetGlobalOptionConfig(1,           "filters", "characterLevel", "min")
-            self:SetGlobalOptionConfig(maxCharLevel,"filters", "characterLevel", "max")
+            self:SetGlobalOptionConfig(false,       "filters", "character", "level", "enable")
+            self:SetGlobalOptionConfig(1,           "filters", "character", "level", "min")
+            self:SetGlobalOptionConfig(maxCharLevel,"filters", "character", "level", "max")
             self:NotifyChange()
           end, disabled).width = 0.7
           GUI:CreateExecute(opts, "Max Level", self.L["Max Level"], desc, function()
-            self:SetGlobalOptionConfig(true,         "filters", "characterLevel", "enable")
-            self:SetGlobalOptionConfig(maxCharLevel, "filters", "characterLevel", "min")
-            self:SetGlobalOptionConfig(maxCharLevel, "filters", "characterLevel", "max")
+            self:SetGlobalOptionConfig(true,         "filters", "character", "level", "enable")
+            self:SetGlobalOptionConfig(maxCharLevel, "filters", "character", "level", "min")
+            self:SetGlobalOptionConfig(maxCharLevel, "filters", "character", "level", "max")
             self:NotifyChange()
           end, disabled).width = 0.7
           GUI:CreateExecute(opts, "Below Max Level", format(self.L["%d-%d"], 1, maxCharLevel-1), desc, function()
-            self:SetGlobalOptionConfig(true,           "filters", "characterLevel", "enable")
-            self:SetGlobalOptionConfig(1,              "filters", "characterLevel", "min")
-            self:SetGlobalOptionConfig(maxCharLevel-1, "filters", "characterLevel", "max")
+            self:SetGlobalOptionConfig(true,           "filters", "character", "level", "enable")
+            self:SetGlobalOptionConfig(1,              "filters", "character", "level", "min")
+            self:SetGlobalOptionConfig(maxCharLevel-1, "filters", "character", "level", "max")
             self:NotifyChange()
           end, disabled).width = 0.7
           
           local minLevel, maxLevel
-          if self:GetGlobalOption("filters", "characterLevel", "enable") then
-            minLevel = self:GetGlobalOption("filters", "characterLevel", "min")
-            maxLevel = self:GetGlobalOption("filters", "characterLevel", "max")
+          if self:GetGlobalOption("filters", "character", "level", "enable") then
+            minLevel = self:GetGlobalOption("filters", "character", "level", "min")
+            maxLevel = self:GetGlobalOption("filters", "character", "level", "max")
           else
             minLevel = 1
             maxLevel = maxCharLevel
@@ -337,21 +341,21 @@ local function MakeStatsOptions(opts, categoryName)
         do
           local opts = GUI:CreateGroupBox(opts, self.L["Level"])
           
-          GUI:CreateReverseToggle(opts, {"filters", "characterLevel", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+          GUI:CreateReverseToggle(opts, {"filters", "character", "level", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
           do
-            local disabled = disabled or not self:GetGlobalOption("filters", "characterLevel", "enable")
+            local disabled = disabled or not self:GetGlobalOption("filters", "character", "level", "enable")
             
-            local option = GUI:CreateRange(opts, {"filters", "characterLevel", "min"}, self.L["Minimum"], nil, 1, 120, 1, disabled)
+            local option = GUI:CreateRange(opts, {"filters", "character", "level", "min"}, self.L["Minimum"], nil, 1, 120, 1, disabled)
             option.softMax = maxCharLevel
             option.set = function(info, val)
-              self:SetGlobalOptionConfig(val, "filters", "characterLevel", "min")
-              self:SetGlobalOptionConfig(mathMax(val,   self:GetGlobalOption("filters", "characterLevel", "max")), "filters", "characterLevel", "max")
+              self:SetGlobalOptionConfig(val, "filters", "character", "level", "min")
+              self:SetGlobalOptionConfig(mathMax(val,   self:GetGlobalOption("filters", "character", "level", "max")), "filters", "character", "level", "max")
             end
-            local option = GUI:CreateRange(opts, {"filters", "characterLevel", "max"}, self.L["Maximum"], nil, 1, 120, 1, disabled)
+            local option = GUI:CreateRange(opts, {"filters", "character", "level", "max"}, self.L["Maximum"], nil, 1, 120, 1, disabled)
             option.softMax = maxCharLevel
             option.set = function(info, val)
-              self:SetGlobalOptionConfig(val, "filters", "characterLevel", "max")
-              self:SetGlobalOptionConfig(mathMin(val, self:GetGlobalOption("filters", "characterLevel", "min")), "filters", "characterLevel", "min")
+              self:SetGlobalOptionConfig(val, "filters", "character", "level", "max")
+              self:SetGlobalOptionConfig(mathMin(val, self:GetGlobalOption("filters", "character", "level", "min")), "filters", "character", "level", "min")
             end
           end
         end
@@ -365,17 +369,17 @@ local function MakeStatsOptions(opts, categoryName)
       do
         local opts = GUI:CreateGroupBox(opts, self.L["Group Loot"])
         
-        local color = not self:GetGlobalOption("filters", "rollMethod", "group") and not self:GetGlobalOption("filters", "rollMethod", "manual") and "|cffff0000" or ""
-        GUI:CreateToggle(opts, {"filters", "rollMethod", "group"},  color .. self.L["Enable"], nil, disabled)
+        local color = not self:GetGlobalOption("filters", "group", "enable") and not self:GetGlobalOption("filters", "manual", "enable") and "|cffff0000" or ""
+        GUI:CreateToggle(opts, {"filters", "group", "enable"},  color .. self.L["Enable"], nil, disabled)
       end
       
-      local disabled = not self:GetGlobalOption("filters", "rollMethod", "group")
+      local disabled = not self:GetGlobalOption("filters", "group", "enable")
       do
         local opts = GUI:CreateGroupBox(opts, self.L["Win"])
         
-        local color = not self:GetGlobalOption("filters", "rollWon", 0) and not self:GetGlobalOption("filters", "rollWon", 1) and "|cffff0000" or ""
-        GUI:CreateToggle(opts, {"filters", "rollWon", 1}, color .. self.L["Yes"], nil, disabled)
-        GUI:CreateToggle(opts, {"filters", "rollWon", 0}, color .. self.L["No"],  nil, disabled)
+        local color = not self:GetGlobalOption("filters", "group", "roll", "won", 0) and not self:GetGlobalOption("filters", "group", "roll", "won", 1) and "|cffff0000" or ""
+        GUI:CreateToggle(opts, {"filters", "group", "roll", "won", 1}, color .. self.L["Yes"], nil, disabled)
+        GUI:CreateToggle(opts, {"filters", "group", "roll", "won", 0}, color .. self.L["No"],  nil, disabled)
       end
       
       GUI:CreateNewline(opts)
@@ -383,12 +387,12 @@ local function MakeStatsOptions(opts, categoryName)
       do
         local validFilter = false
         for i in ipairs(QUALITY_NAMES) do
-          validFilter = validFilter or self:GetGlobalOptionQuiet("filters", "itemQuality", i)
+          validFilter = validFilter or self:GetGlobalOptionQuiet("filters", "group", "item", "quality", i)
           if validFilter then break end
         end
         
         local color = validFilter and "" or "|cffff0000"
-        GUI:CreateMultiDropdown(opts, {"filters", "itemQuality"}, color .. self.L["Item Quality"], desc, QUALITY_NAMES, disabled).width = 2
+        GUI:CreateMultiDropdown(opts, {"filters", "group", "item", "quality"}, color .. self.L["Item Quality"], desc, QUALITY_NAMES, disabled).width = 2
       end
       
       GUI:CreateNewline(opts)
@@ -398,21 +402,21 @@ local function MakeStatsOptions(opts, categoryName)
         
         local maxItemLevel = Addon.MAX_ITEM_LEVEL_SLIDER
         
-        GUI:CreateReverseToggle(opts, {"filters", "itemLevel", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+        GUI:CreateReverseToggle(opts, {"filters", "group", "item", "level", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
         do
-          local disabled = disabled or not self:GetGlobalOption("filters", "itemLevel", "enable")
+          local disabled = disabled or not self:GetGlobalOption("filters", "group", "item", "level", "enable")
           
-          local option = GUI:CreateRange(opts, {"filters", "itemLevel", "min"}, self.L["Minimum"], nil, 0, 999, 1, disabled)
+          local option = GUI:CreateRange(opts, {"filters", "group", "item", "level", "min"}, self.L["Minimum"], nil, 0, 999, 1, disabled)
           option.softMax = maxItemLevel - 1
           option.set = function(info, val)
-            self:SetGlobalOptionConfig(val, "filters", "itemLevel", "min")
-            self:SetGlobalOptionConfig(mathMax(val,   self:GetGlobalOption("filters", "itemLevel", "max")), "filters", "itemLevel", "max")
+            self:SetGlobalOptionConfig(val, "filters", "group", "item", "level", "min")
+            self:SetGlobalOptionConfig(mathMax(val,   self:GetGlobalOption("filters", "group", "item", "level", "max")), "filters", "group", "item", "level", "max")
           end
-          local option = GUI:CreateRange(opts, {"filters", "itemLevel", "max"}, self.L["Maximum"], nil, 1, 1000, 1, disabled)
+          local option = GUI:CreateRange(opts, {"filters", "group", "item", "level", "max"}, self.L["Maximum"], nil, 1, 1000, 1, disabled)
           option.softMax = maxItemLevel
           option.set = function(info, val)
-            self:SetGlobalOptionConfig(val, "filters", "itemLevel", "max")
-            self:SetGlobalOptionConfig(mathMin(val, self:GetGlobalOption("filters", "itemLevel", "min")), "filters", "itemLevel", "min")
+            self:SetGlobalOptionConfig(val, "filters", "group", "item", "level", "max")
+            self:SetGlobalOptionConfig(mathMin(val, self:GetGlobalOption("filters", "group", "item", "level", "min")), "filters", "group", "item", "level", "min")
           end
         end
       end
@@ -425,55 +429,55 @@ local function MakeStatsOptions(opts, categoryName)
       do
         local opts = GUI:CreateGroupBox(opts, self.L["/roll"])
         
-        local color = not self:GetGlobalOption("filters", "rollMethod", "group") and not self:GetGlobalOption("filters", "rollMethod", "manual") and "|cffff0000" or ""
-        GUI:CreateToggle(opts, {"filters", "rollMethod", "manual"},  color .. self.L["Enable"], nil, disabled)
+        local color = not self:GetGlobalOption("filters", "group", "enable") and not self:GetGlobalOption("filters", "manual", "enable") and "|cffff0000" or ""
+        GUI:CreateToggle(opts, {"filters", "manual", "enable"},  color .. self.L["Enable"], nil, disabled)
       end
       
-      local disabled = not self:GetGlobalOption("filters", "rollMethod", "manual")
+      local disabled = not self:GetGlobalOption("filters", "manual", "enable")
       
       do
         local opts = GUI:CreateGroupBox(opts, self.L["Select"])
         
         GUI:CreateExecute(opts, "Unlimited", self.L["Unlimited"], desc, function()
-          self:SetGlobalOptionConfig(false,     "filters", "rollLimits", "min", "enable")
-          self:SetGlobalOptionConfig(0,         "filters", "rollLimits", "min", "min")
-          self:SetGlobalOptionConfig(1000000-1, "filters", "rollLimits", "min", "max")
-          self:SetGlobalOptionConfig(false,     "filters", "rollLimits", "max", "enable")
-          self:SetGlobalOptionConfig(1,         "filters", "rollLimits", "max", "min")
-          self:SetGlobalOptionConfig(1000000,   "filters", "rollLimits", "max", "max")
+          self:SetGlobalOptionConfig(false,     "filters", "manual", "roll", "limits", "min", "enable")
+          self:SetGlobalOptionConfig(0,         "filters", "manual", "roll", "limits", "min", "min")
+          self:SetGlobalOptionConfig(1000000-1, "filters", "manual", "roll", "limits", "min", "max")
+          self:SetGlobalOptionConfig(false,     "filters", "manual", "roll", "limits", "max", "enable")
+          self:SetGlobalOptionConfig(1,         "filters", "manual", "roll", "limits", "max", "min")
+          self:SetGlobalOptionConfig(1000000,   "filters", "manual", "roll", "limits", "max", "max")
           self:NotifyChange()
         end, disabled).width = 0.7
         GUI:CreateExecute(opts, "1-100", format(self.L["%d-%d"], 1, 100), desc, function()
-          self:SetGlobalOptionConfig(true, "filters", "rollLimits", "min", "enable")
-          self:SetGlobalOptionConfig(1,    "filters", "rollLimits", "min", "min")
-          self:SetGlobalOptionConfig(1,    "filters", "rollLimits", "min", "max")
-          self:SetGlobalOptionConfig(true, "filters", "rollLimits", "max", "enable")
-          self:SetGlobalOptionConfig(100,  "filters", "rollLimits", "max", "min")
-          self:SetGlobalOptionConfig(100,  "filters", "rollLimits", "max", "max")
+          self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "min", "enable")
+          self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "min")
+          self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "max")
+          self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "max", "enable")
+          self:SetGlobalOptionConfig(100,  "filters", "manual", "roll", "limits", "max", "min")
+          self:SetGlobalOptionConfig(100,  "filters", "manual", "roll", "limits", "max", "max")
           self:NotifyChange()
         end, disabled).width = 0.7
         GUI:CreateExecute(opts, "1-99", format("%s %s %s", format(self.L["%d-%d"], 1, 2), self.L["-->"], format(self.L["%d-%d"], 1, 99)), desc, function()
-          self:SetGlobalOptionConfig(true, "filters", "rollLimits", "min", "enable")
-          self:SetGlobalOptionConfig(1,    "filters", "rollLimits", "min", "min")
-          self:SetGlobalOptionConfig(1,    "filters", "rollLimits", "min", "max")
-          self:SetGlobalOptionConfig(true, "filters", "rollLimits", "max", "enable")
-          self:SetGlobalOptionConfig(2,    "filters", "rollLimits", "max", "min")
-          self:SetGlobalOptionConfig(99,   "filters", "rollLimits", "max", "max")
+          self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "min", "enable")
+          self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "min")
+          self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "max")
+          self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "max", "enable")
+          self:SetGlobalOptionConfig(2,    "filters", "manual", "roll", "limits", "max", "min")
+          self:SetGlobalOptionConfig(99,   "filters", "manual", "roll", "limits", "max", "max")
           self:NotifyChange()
         end, disabled).width = 0.7
         
         local minmin, minmax
-        if self:GetGlobalOption("filters", "rollLimits", "min", "enable") then
-          minmin = self:GetGlobalOption("filters", "rollLimits", "min", "min")
-          minmax = self:GetGlobalOption("filters", "rollLimits", "min", "max")
+        if self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "enable") then
+          minmin = self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "min")
+          minmax = self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "max")
         else
           minmin = 0
           minmax = 1000000-1
         end
         local maxmin, maxmax
-        if self:GetGlobalOption("filters", "rollLimits", "max", "enable") then
-          maxmin = self:GetGlobalOption("filters", "rollLimits", "max", "min")
-          maxmax = self:GetGlobalOption("filters", "rollLimits", "max", "max")
+        if self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "enable") then
+          maxmin = self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "min")
+          maxmax = self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "max")
         else
           maxmin = 1
           maxmax = 1000000
@@ -505,23 +509,23 @@ local function MakeStatsOptions(opts, categoryName)
       do
         local opts = GUI:CreateGroupBox(opts, self.L["Minimum"])
         
-        GUI:CreateReverseToggle(opts, {"filters", "rollLimits", "min", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+        GUI:CreateReverseToggle(opts, {"filters", "manual", "roll", "limits", "min", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
         do
-          local disabled = disabled or not self:GetGlobalOption("filters", "rollLimits", "min", "enable")
+          local disabled = disabled or not self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "enable")
           
-          local option = GUI:CreateRange(opts, {"filters", "rollLimits", "min", "min"}, self.L["Minimum"], nil, 0, 1000000-1, 1, disabled)
+          local option = GUI:CreateRange(opts, {"filters", "manual", "roll", "limits", "min", "min"}, self.L["Minimum"], nil, 0, 1000000-1, 1, disabled)
           option.softMax = 100
           option.set = function(info, val)
-            self:SetGlobalOptionConfig(val, "filters", "rollLimits", "min", "min")
-            self:SetGlobalOptionConfig(mathMax(val,   self:GetGlobalOption("filters", "rollLimits", "min", "max")), "filters", "rollLimits", "min", "max")
-            self:SetGlobalOptionConfig(mathMax(val+1, self:GetGlobalOption("filters", "rollLimits", "max", "min")), "filters", "rollLimits", "max", "min")
-            self:SetGlobalOptionConfig(mathMax(val+1, self:GetGlobalOption("filters", "rollLimits", "max", "max")), "filters", "rollLimits", "max", "max")
+            self:SetGlobalOptionConfig(val, "filters", "manual", "roll", "limits", "min", "min")
+            self:SetGlobalOptionConfig(mathMax(val,   self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "max")), "filters", "manual", "roll", "limits", "min", "max")
+            self:SetGlobalOptionConfig(mathMax(val+1, self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "min")), "filters", "manual", "roll", "limits", "max", "min")
+            self:SetGlobalOptionConfig(mathMax(val+1, self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "max")), "filters", "manual", "roll", "limits", "max", "max")
           end
-          local option = GUI:CreateRange(opts, {"filters", "rollLimits", "min", "max"}, self.L["Maximum"], nil, 0, 1000000-1, 1, disabled)
+          local option = GUI:CreateRange(opts, {"filters", "manual", "roll", "limits", "min", "max"}, self.L["Maximum"], nil, 0, 1000000-1, 1, disabled)
           option.softMax = 100
           option.set = function(info, val)
-            self:SetGlobalOptionConfig(val, "filters", "rollLimits", "min", "max")
-            self:SetGlobalOptionConfig(mathMin(val, self:GetGlobalOption("filters", "rollLimits", "min", "min")), "filters", "rollLimits", "min", "min")
+            self:SetGlobalOptionConfig(val, "filters", "manual", "roll", "limits", "min", "max")
+            self:SetGlobalOptionConfig(mathMin(val, self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "min")), "filters", "manual", "roll", "limits", "min", "min")
           end
         end
       end
@@ -529,23 +533,23 @@ local function MakeStatsOptions(opts, categoryName)
       do
         local opts = GUI:CreateGroupBox(opts, self.L["Maximum"])
         
-        GUI:CreateReverseToggle(opts, {"filters", "rollLimits", "max", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+        GUI:CreateReverseToggle(opts, {"filters", "manual", "roll", "limits", "max", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
         do
-          local disabled = disabled or not self:GetGlobalOption("filters", "rollLimits", "max", "enable")
+          local disabled = disabled or not self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "enable")
           
-          local option = GUI:CreateRange(opts, {"filters", "rollLimits", "max", "min"}, self.L["Minimum"], nil, 1, 1000000, 1, disabled)
+          local option = GUI:CreateRange(opts, {"filters", "manual", "roll", "limits", "max", "min"}, self.L["Minimum"], nil, 1, 1000000, 1, disabled)
           option.softMax = 200
           option.set = function(info, val)
-            self:SetGlobalOptionConfig(val, "filters", "rollLimits", "max", "min")
-            self:SetGlobalOptionConfig(mathMax(val, self:GetGlobalOption("filters", "rollLimits", "max", "max")), "filters", "rollLimits", "max", "max")
+            self:SetGlobalOptionConfig(val, "filters", "manual", "roll", "limits", "max", "min")
+            self:SetGlobalOptionConfig(mathMax(val, self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "max")), "filters", "manual", "roll", "limits", "max", "max")
           end
-          local option = GUI:CreateRange(opts, {"filters", "rollLimits", "max", "max"}, self.L["Maximum"], nil, 1, 1000000, 1, disabled)
+          local option = GUI:CreateRange(opts, {"filters", "manual", "roll", "limits", "max", "max"}, self.L["Maximum"], nil, 1, 1000000, 1, disabled)
           option.softMax = 200
           option.set = function(info, val)
-            self:SetGlobalOptionConfig(val, "filters", "rollLimits", "max", "max")
-            self:SetGlobalOptionConfig(mathMin(val,   self:GetGlobalOption("filters", "rollLimits", "max", "min")), "filters", "rollLimits", "max", "min")
-            self:SetGlobalOptionConfig(mathMin(val-1, self:GetGlobalOption("filters", "rollLimits", "min", "max")), "filters", "rollLimits", "min", "max")
-            self:SetGlobalOptionConfig(mathMin(val-1, self:GetGlobalOption("filters", "rollLimits", "min", "min")), "filters", "rollLimits", "min", "min")
+            self:SetGlobalOptionConfig(val, "filters", "manual", "roll", "limits", "max", "max")
+            self:SetGlobalOptionConfig(mathMin(val,   self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "min")), "filters", "manual", "roll", "limits", "max", "min")
+            self:SetGlobalOptionConfig(mathMin(val-1, self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "max")), "filters", "manual", "roll", "limits", "min", "max")
+            self:SetGlobalOptionConfig(mathMin(val-1, self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "min")), "filters", "manual", "roll", "limits", "min", "min")
           end
           
         end
@@ -557,8 +561,8 @@ local function MakeStatsOptions(opts, categoryName)
       --   local opts = GUI:CreateGroupBox(opts, self.L["Loot Rolls"])
         
       --   do
-      --     local min = self:GetGlobalOption("filters", "rollLimits", "min", "enable") and self:GetGlobalOption("filters", "rollLimits", "min", "min") or 0
-      --     local max = self:GetGlobalOption("filters", "rollLimits", "max", "enable") and self:GetGlobalOption("filters", "rollLimits", "max", "max") or 1000000
+      --     local min = self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "enable") and self:GetGlobalOption("filters", "manual", "roll", "limits", "min", "min") or 0
+      --     local max = self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "enable") and self:GetGlobalOption("filters", "manual", "roll", "limits", "max", "max") or 1000000
       --     GUI:CreateDescription(opts, format("(%d-%d)", min, max))
       --   end
         
@@ -578,7 +582,7 @@ local function MakeConfigOptions(opts, categoryName)
   local GUI = self.GUI
   local opts = GUI:CreateGroup(opts, categoryName, categoryName, nil, "tab")
   
-  
+  -- GUI:CreateToggle(opts, )
   
   return opts
 end

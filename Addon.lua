@@ -36,11 +36,12 @@ function Addon:InitDB()
       end
       
       self:SetGlobalOptionConfigQuiet(newRolls, "rolls")
+      
+      -- reset filters setting
+      self:ResetGlobalOptionConfigQuiet("filters")
     end
-    
-    -- reset filters>rollType setting
-    self:ResetGlobalOptionConfigQuiet("filters", "rollType")
   end
+  
   
   -- init roll db
   do

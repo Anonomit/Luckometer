@@ -86,7 +86,7 @@ function Addon:DeleteCharacter(guid)
   
   local nameRealm = self:GetColoredNameRealmFromGUID(guid)
   
-  self:ResetGlobalOptionConfigQuiet("filters", "character", guid)
+  self:ResetGlobalOptionConfigQuiet("filters", "character", "guid", guid)
   self:ResetGlobalOptionConfigQuiet("characters", guid)
   
   local count = self:GetGlobalOptionQuiet("rolls", guid):GetCount()

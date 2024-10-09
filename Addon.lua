@@ -80,7 +80,7 @@ function Addon:OnEnable()
   self:GetDB().RegisterCallback(self, "OnProfileCopied" , function() self:InitDB(dbInitFuncs, "profile") end)
   self:GetDB().RegisterCallback(self, "OnProfileReset"  , function() self:InitDB(dbInitFuncs, "profile") end)
   
-  self:InitChatCommands("lucky", "lm", "lom", "lucko", "luck-o-meter", "luck-o-metre", "luckometre", ADDON_NAME:lower())
+  self:InitChatCommands("lucky", "lm", "lom", "l-o-m", "lucko", "luck-o", "luck-o-meter", "luck-o-metre", "luckometre", ADDON_NAME:lower())
   
   self:RunEnableCallbacks()
 end

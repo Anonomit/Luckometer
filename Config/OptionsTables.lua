@@ -141,7 +141,10 @@ local function MakeStatsOptions(opts, categoryName)
     local avgRoll  = "???"
     local avgScore = "???"
     if results then
-      count = self:ToFormattedNumber(results.count, 0)
+      local filtered = results.count
+      local total    = self:CountRolls()
+      local percent  = self:Round(filtered / total * 100, 0.01)
+      count = format("%s / %s (%s%%)", self:ToFormattedNumber(filtered, 0), self:ToFormattedNumber(total, 0), self:ToFormattedNumber(percent))
       if results.count > 0 then
         avgRoll  = self:ToFormattedNumber(results.avgRoll,      1) .. " (1-100)"
         avgScore = self:ToFormattedNumber(results.avgScore*100, 1) .. "%"
@@ -173,7 +176,7 @@ local function MakeStatsOptions(opts, categoryName)
       
       -- character selection
       do
-        local opts = GUI:CreateGroup(opts, self.L["Select"], self.L["Select"], nil, "tab")
+        local opts = GUI:CreateGroup(opts, "Select", self.L["Select"], nil, "tab")
         
         local totalRolls = 0
         for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
@@ -295,7 +298,7 @@ local function MakeStatsOptions(opts, categoryName)
       
       -- level filters
       do
-        local opts = GUI:CreateGroup(opts, self.L["Level"], self.L["Level"], nil, "tab")
+        local opts = GUI:CreateGroup(opts, "Level", self.L["Level"], nil, "tab")
           
         local maxCharLevel = Addon.MAX_LEVEL
         

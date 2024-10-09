@@ -164,6 +164,13 @@ function Addon:StoreRoll(rollData)
 end
 
 
+function Addon:CountRolls()
+  local total = 0
+  for guid, rolls in pairs(Addon:GetGlobalOptionQuiet"rolls") do
+    total = total + rolls:GetCount()
+  end
+  return total
+end
 
 
 

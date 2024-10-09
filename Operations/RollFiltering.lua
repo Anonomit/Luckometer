@@ -173,12 +173,13 @@ do
     local itemsToCache = {}
     local itemsInCache = {}
     
+    local store = deserializedRolls -- remove this line and uncomment the others when rolls need to be filtered in order
     
     -- gather rolls from db
     for guid, rolls in pairs(Addon:GetGlobalOptionQuiet"rolls") do
-      if Addon:GetGlobalOption("filters", "character", "guid", guid) then
+      if Addon:GetGlobalOption("filters", "character", "guid", guid) then--[[
         local store = {}
-        deserializedRolls[#deserializedRolls+1] = store
+        deserializedRolls[#deserializedRolls+1] = store]]
         
         for i, rollString in rolls:iter() do
           count = count + 1
@@ -202,19 +203,19 @@ do
             coroutine.yield()
             count = 0
           end
-        end
+        end--[[
         if #store == 0 then
           deserializedRolls[#deserializedRolls] = nil
         else
           deserializedRolls[#deserializedRolls] = {ipairs(store)}
-        end
+        end]]
       end
     end
     
-    
+    --[[
     -- sort deserialized rolls
     local deserializedRolls = Addon:MergeSorted(deserializedRolls)
-    
+    ]]
     
     -- cache missing items
     if #itemsToCache > 0 then

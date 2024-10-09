@@ -27,6 +27,7 @@ do
     __index = {
       min = 1,
       max = 100,
+      luckyItems = {},
     },
     __lt = function(self, o)
       if self.datetime ~= o.datetime then
@@ -45,6 +46,12 @@ do
     end
     if rawget(rollData, "max") == 100 then
       rawset(rollData, "max", nil)
+    end
+    do
+      local luckyItems = rawget(rollData, "luckyItems")
+      if luckyItems and #luckyItems == 0 then
+        rawset(rollData, "luckyItems", nil)
+      end
     end
     rawset(rollData, "guid", nil)
     
@@ -138,8 +145,8 @@ function Addon:StoreRoll(rollData)
   
   StoreCharacter()
   
-  -- rollData.guid  = self.MY_GUID
-  rollData.level = self.MY_LEVEL
+  rollData.level      = self.MY_LEVEL
+  rollData.luckyItems = self:GetOwnedLuckyItems()
   
   local guid = self.MY_GUID
   

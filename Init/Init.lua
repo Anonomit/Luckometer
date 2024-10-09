@@ -402,6 +402,90 @@ do
     return sum
   end
   
+  do
+    local function Compare(a, b)
+      if type(a) == type(b) then
+        return a < b
+      else
+        if type(a) == "number" then
+          return true
+        elseif type(b) == "number" then
+          return false
+        else
+          return tostring(a) < tostring(b)
+        end
+      end
+    end
+    
+    -- iterator cannot be reused
+    -- for k, v in ...
+    function Addon:Ordered(t, func)
+      local keys = {}
+      for k, v in pairs(t) do
+        keys[#keys+1] = k
+      end
+      tblSort(keys, func or Compare)
+      local i = 0
+      return function()
+        i = i + 1
+        local k = keys[i]
+        if k == nil then
+          return nil
+        end
+        return k, t[k]
+      end
+    end
+    
+    -- iterator can be reused. a bit slower
+    -- for k, v in ...
+    function Addon:OrderedStateless(t, func)
+      local keys       = {}
+      local keyIndices = {}
+      local keysQueue  = Addon.PriorityQueue(nil, func or Compare)
+      for k, v in pairs(t) do
+        keysQueue:Add(k)
+      end
+      for k in keysQueue:iter() do
+        local i = #keys+1
+        
+        keys[i]       = k
+        keyIndices[k] = i
+      end
+      return function(a, k)
+        local i
+        if k == nil then
+          i = 0
+        else
+          i = keyIndices[k]
+        end
+        i = i + 1
+        k = keys[i]
+        if k == nil then
+          return nil
+        end
+        return k, a[k]
+      end, t, nil
+    end
+    
+    -- iterator can be reused
+    -- for i, k, v in ...
+    function Addon:OrderedStatelessCount(t, func)
+      local keys = {}
+      for k, v in pairs(t) do
+        keys[#keys+1] = k
+      end
+      tblSort(keys, func or Compare)
+      return function(a, i)
+        i = i + 1
+        local k = keys[i]
+        if k == nil then
+          return nil
+        end
+        return i, k, a[k]
+      end, t, 0
+    end
+  end
+  
   -- IndexedQueue
   do
     local function GetPrev(t, i)
@@ -669,29 +753,29 @@ do
     end
     
     local function ShiftDown(actual, i, SortFunc)
-      local max   = i
+      local min   = i
       local left  = GetLeft(i)
       local right = GetRight(i)
       
       if SortFunc then
-        if rawget(actual, left) and SortFunc(rawget(actual, left), rawget(actual, max)) then
-          max = left
+        if rawget(actual, left) and SortFunc(rawget(actual, left), rawget(actual, min)) then
+          min = left
         end
-        if rawget(actual, right) and SortFunc(rawget(actual, right), rawget(actual, max)) then
-          max = right
+        if rawget(actual, right) and SortFunc(rawget(actual, right), rawget(actual, min)) then
+          min = right
         end
       else
-        if rawget(actual, left) and rawget(actual, left) < rawget(actual, max) then
-          max = left
+        if rawget(actual, left) and rawget(actual, left) < rawget(actual, min) then
+          min = left
         end
-        if rawget(actual, right) and rawget(actual, right) < rawget(actual, max) then
-          max = right
+        if rawget(actual, right) and rawget(actual, right) < rawget(actual, min) then
+          min = right
         end
       end
       
-      if i ~= max then
-        Swap(actual, i, max)
-        ShiftDown(actual, max, SortFunc)
+      if i ~= min then
+        Swap(actual, i, min)
+        ShiftDown(actual, min, SortFunc)
       end
     end
     
@@ -718,30 +802,34 @@ do
       return Addon:CheckTable(self, "actual", 1)
     end
     
-    function PriorityQueue:GetActual()
-      return rawget(self, "actual")
+    function PriorityQueue:iter()
+      local sorted = Addon:Copy(rawget(self, "actual"))
+      tblSort(sorted, rawget(self, "SortFunc"))
+      local i = 0
+      return function()
+        i = i + 1
+        return sorted[i]
+      end
     end
     
-    function PriorityQueue:Get(id)
-      Addon:AssertfLevel(2, type(id) == "number", "Attempted to access a non-number index: %s (%s)", tostring(id), type(id))
-      return Addon:CheckTable(self, "actual", id)
+    function PriorityQueue:riter()
+      local sorted = tblSort(Addon:Copy(rawget(self, "actual")), rawget(self, "SortFunc"))
+      tblSort(sorted, rawget(self, "SortFunc"))
+      local i = #sorted + 1
+      return function()
+        i = i - 1
+        return sorted[i]
+      end
     end
     
     
     local meta = {
       __index = function(self, k)
-        if PriorityQueue[k] then
-          return PriorityQueue[k]
-        else
-          return PriorityQueue.Get(self, k)
-        end
+        Addon:Assertf(k and PriorityQueue[k], "Attempt to index PriorityQueue with key %s", tostring(k))
+        return PriorityQueue[k]
       end,
       __newindex = function(self, k, v)
-        Addon:Error()
-        Addon:AssertfLevel(2, v == nil, "Attempted to insert an element by index: %s = %s", tostring(k), tostring(v))
-        Addon:AssertfLevel(2, type(k) == "number", "Attempted to remove an element with an invalid key: %s (%s)", tostring(k), type(k))
-        
-        return PriorityQueue.Remove(self, k)
+        Addon:Errorf("Attempted to insert an element into a PriorityQueue: %s = %s", tostring(k), tostring(v))
       end,
     }
     

@@ -363,6 +363,31 @@ local function MakeStatsOptions(opts, categoryName)
           end
         end
       end
+      --[[
+      do
+        local opts = GUI:CreateGroup(opts, "Inventory", self.L["Inventory"], nil, "tab")
+        
+        if #self.orderedLuckyItems > 1 then
+          
+          
+          -- local validFilter = false
+          -- for i in ipairs(QUALITY_NAMES) do
+          --   validFilter = validFilter or self:GetGlobalOptionQuiet("filters", "group", "item", "quality", i)
+          --   if validFilter then break end
+          -- end
+          
+          local color = validFilter and "" or "|cffff0000"
+          
+          GUI:CreateToggle(opts, {"filters", "character", "luckyItems", "enable"}, self.L["Require items"]).width = 0.8
+          GUI:CreateDropdown(opts, {"filters", "character", "luckyItems", "operator"}, "", desc, {any = self.L["any"], all = self.L["all"], none = self.L["none"]}, {"any", "all", "none"}).width = 0.4
+          GUI:CreateMultiDropdown(opts, {"filters", "character", "luckyItems", "items"}, color .. self.L["Items"], desc, self.luckyItemLinks, disabled).width = 1.5
+          
+          
+        else
+          
+        end
+      end
+      ]]
     end
     
     -- group loot filters
@@ -668,7 +693,9 @@ local function MakeDebugOptions(opts, categoryName)
       local disabled = disabled or self:GetGlobalOption("debugOutput", "suppressAll")
       
       for i, data in ipairs{
-        {"rollAdded", "Roll added"},
+        {"rollStarted", "Group Loot roll started"},
+        {"rollEnded",   "Group Loot roll ended"},
+        {"rollAdded",   "Roll stored"},
         
         {"rollsFilterStarted",   "Rolls filtering started"},
         {"rollFilterProgress",   "Rolls filtering progress"},

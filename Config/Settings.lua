@@ -19,6 +19,11 @@ function Addon:MakeDefaultOptions()
         min    = 1,
         max    = Addon.MAX_LEVEL,
       },
+      -- luckyItems = {
+      --   enable   = true,
+      --   operator = "any",
+      --   items    = Addon.allLuckyItems,
+      -- },
     },
     group = {
       enable = true,
@@ -31,6 +36,11 @@ function Addon:MakeDefaultOptions()
         --   true,
         --   true,
         --   true,
+        -- },
+        -- numPlayers = {
+        --   enable = false,
+        --   min    = 1,
+        --   max    = 40,
         -- },
       },
       item = {

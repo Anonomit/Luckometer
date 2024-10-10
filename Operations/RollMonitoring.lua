@@ -34,6 +34,11 @@ Addon:RegisterEnableCallback(function(self)
       for i = 1, C_LootHistory.GetNumItems() do
         if C_LootHistory.GetItem(i) == rollID then
           local rollID, itemLink, numPlayers, isDone, winnerIdx, isMasterLoot = C_LootHistory.GetItem(i)
+          if self:GetGlobalOptionQuiet("debugOutput", "rollStarted") then
+            self.ItemCache(itemLink):OnCache(function()
+              self:DebugfIfOutput("rollStarted", "Loot roll #%d (rollID %d) started for %s", i, rollID, itemLink)
+            end)
+          end
           lootRolls[rollID] = {
             datetime = GetServerTime(),
             isDone = false,
@@ -49,6 +54,11 @@ Addon:RegisterEnableCallback(function(self)
         local rollID, itemLink, numPlayers, isDone, winnerID, isMasterLoot = C_LootHistory.GetItem(i)
         if lootRolls[rollID] then
           if isDone and not lootRolls[rollID].isDone then
+            if self:GetGlobalOptionQuiet("debugOutput", "rollEnded") then
+              self.ItemCache(itemLink):OnCache(function()
+                self:DebugfIfOutput("rollEnded", "Loot roll #%d (rollID %d) ended for %s", i, rollID, itemLink)
+              end)
+            end
             lootRolls[rollID].isDone = true
             lootRolls[rollID] = nil
             

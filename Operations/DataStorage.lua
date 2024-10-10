@@ -11,6 +11,8 @@ local AceSerializer = Addon.AceSerializer
 
 local strMatch = string.match
 
+local tblConcat = table.concat
+
 
 
 
@@ -158,7 +160,25 @@ function Addon:StoreRoll(rollData)
   rolls[guid]:Add(rollString)
   self:SetGlobalOptionConfigQuiet(rolls[guid], "rolls", guid) -- run callbacks
   
-  self:DebugfIfOutput("rollAdded", "Roll added: %d (%d-%d)", rollData.roll, rollData.min or 1, rollData.max or 100)
+  if self:GetGlobalOptionQuiet("debugOutput", "rollAdded") then
+    self:DebugfIfOutput("rollAdded", "Roll stored for %s", guid)
+    self:DebugData{
+      {"datetime",   rollData.datetime},
+      {"level",      rollData.level},
+      {"luckyItems", rollData.luckyItems and format("{%s}", tblConcat(rollData.luckyItems, ", "))},
+      {"roll",       rollData.roll},
+      
+      {"type", rollData.manual and "manual" or "group"},
+      
+      {"min",  self:ShortCircuit(rollData.min == 1,   nil, rollData.min)},
+      {"max",  self:ShortCircuit(rollData.max == 100, nil, rollData.max)},
+      
+      {"numPlayers", rollData.numPlayers},
+      {"itemLink",   rollData.itemLink},
+      {"won",        rollData.won},
+      {"rollType",   rollData.rollType == 2 and "Need" or rollData.rollType == 1 and "Greed" or rollData.rollType},
+    }
+  end
   
   self:NotifyChange()
 end

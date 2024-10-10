@@ -18,6 +18,15 @@ local groupLootFilters = {
   rollWon = function(rollData)
     return GetOptionBool("group", "roll", "won", rollData.won and 1 or 0)
   end,
+  rollType = function(rollData)
+    return GetOptionBool("group", "roll", "type", rollData.rollType)
+  end,
+  rollNumPlayers = function(rollData)
+    if not GetOptionBool("group", "roll", "numPlayers", "enable") then return true end
+    
+    local numPlayers = rollData.numPlayers
+    return numPlayers >= Addon:GetGlobalOption("filters", "group", "roll", "numPlayers", "min") and numPlayers <= Addon:GetGlobalOption("filters", "group", "roll", "numPlayers", "max")
+  end,
   itemQuality = function(rollData)
     if Addon:ThrowAssert(rollData.item, "Can't filter for quality because the roll has no item") then
       Addon:ThrowfAssert(rollData.item:IsCached(), "Can't filter for quality because item is not cached: %s", tostring(rollData.item))

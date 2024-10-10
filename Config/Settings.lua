@@ -32,16 +32,16 @@ function Addon:MakeDefaultOptions()
           [0] = true,
           [1] = true,
         },
-        -- type = {
-        --   true,
-        --   true,
-        --   true,
-        -- },
-        -- numPlayers = {
-        --   enable = false,
-        --   min    = 1,
-        --   max    = 40,
-        -- },
+        type = {
+          true,
+          true,
+          true,
+        },
+        numPlayers = {
+          enable = false,
+          min    = 1,
+          max    = 40,
+        },
       },
       item = {
         quality = {

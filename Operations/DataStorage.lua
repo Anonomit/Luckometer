@@ -176,7 +176,7 @@ function Addon:StoreRoll(rollData)
       {"numPlayers", rollData.numPlayers},
       {"itemLink",   rollData.itemLink},
       {"won",        rollData.won},
-      {"rollType",   rollData.rollType == 2 and "Need" or rollData.rollType == 1 and "Greed" or rollData.rollType},
+      {"rollType",   rollData.rollType == 1 and "Need" or rollData.rollType == 2 and "Greed" or rollData.rollType == 3 and "Disenchant" or rollData.rollType},
     }
   end
   

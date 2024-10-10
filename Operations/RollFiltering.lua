@@ -291,6 +291,7 @@ do
   
   
   function Addon:StartRollCalculations(notify)
+    Addon:DebugIfOutput("rollsFilterStarted", "Attempting to start/resume rolls filtering")
     local data = self:GetThreadData"RollResults"
     if data and notify then
       data.notify = true
@@ -309,7 +310,8 @@ do
   
   
   function Addon:ResetRollCalculations()
-    self:StopThread"RollResults"
+    Addon:DebugIfOutput("rollsFilterReset", "Reseting rolls filtering")
+    self:KillThread"RollResults"
     local data = self:GetThreadData"RollResults"
     if data then
       wipe(data)
@@ -320,14 +322,49 @@ do
     end
   end
   
-  function Addon:RestartRollCalculations()
-    self:ResetRollCalculations()
-    if self:IsConfigOpen() then
-      self:StartRollCalculations()
+  do
+    local manualEditMode = false
+    
+    function Addon:RestartRollCalculations()
+      self:AllowRecalculation()
+      self:ResetRollCalculations()
+      if self:IsConfigOpen() then
+        self:StartRollCalculations()
+      end
     end
+    
+    
+    function Addon:AllowRecalculation()
+      manualEditMode = false
+    end
+    function Addon:BlockRecalculation()
+      manualEditMode = true
+    end
+    
+    function Addon:DelayCalculationCallbacks(func, ...)
+      self:BlockRecalculation()
+      
+      func(...)
+      
+      self:RestartRollCalculations()
+      self:NotifyChange()
+    end
+    
+    
+    Addon:RegisterOptionSetHandler(function(self, val, ...)
+      if manualEditMode then return end
+      
+      local path = {...}
+      if path[2] ~= "global" then return end
+      if path[3] == "filters" or path[3] == "rolls" then
+        self:RestartRollCalculations()
+        
+        if path[3] == "rolls" then
+          self:NotifyChange() -- making sure the research button is visible
+        end
+      end
+    end)
   end
-  
-  
   
   
   Addon:RegisterOptionsOpenPreCallback(function(self)
@@ -335,18 +372,6 @@ do
   end)
   Addon:RegisterOptionsClosePostCallback(function(self)
     Addon:StopRollCalculations()
-  end)
-  
-  Addon:RegisterOptionSetHandler(function(self, val, ...)
-    local path = {...}
-    if path[2] ~= "global" then return end
-    if path[3] == "filters" or path[3] == "rolls" then
-      self:RestartRollCalculations()
-      
-      if path[3] == "rolls" then
-        self:NotifyChange() -- making sure the research button is visible
-      end
-    end
   end)
 end
 

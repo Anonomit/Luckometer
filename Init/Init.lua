@@ -673,6 +673,14 @@ do
       return IndexedQueue.prev, self, nil
     end
     
+    function IndexedQueue:GetHead()
+      return IndexedQueue.next(self)
+    end
+    
+    function IndexedQueue:GetTail()
+      return IndexedQueue.prev(self)
+    end
+    
     local meta = {
       __index = function(self, k)
         if IndexedQueue[k] then
@@ -901,7 +909,7 @@ do
   end
   
   function Addon.TimedTable(defaultDuration)
-    local duration = defaultDuration
+    local duration = defaultDuration or 10
     local db       = {}
     local timers   = {}
     local count    = 0
@@ -1432,7 +1440,6 @@ do
     
     db.version = currentVersion
   end
-  
 end
 
 
@@ -2129,6 +2136,14 @@ do
       thread:Stop()
     end
     return thread
+  end
+  
+  function Addon:KillThread(name)
+    local thread = threads[name]
+    if thread then
+      thread:Stop()
+    end
+    threads[name] = nil
   end
   
   function Addon:RunThread(name)

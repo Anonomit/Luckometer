@@ -78,13 +78,13 @@ function Addon:MakeDefaultOptions()
         limits = {
           min = {
             enable = false,
-            min    = 1,
-            max    = 1,
+            min    = 0,
+            max    = 999999,
           },
           max = {
             enable = false,
-            min    = 100,
-            max    = 100,
+            min    = 1,
+            max    = 1000000,
           },
           -- span = {
           --   min = 1,
@@ -94,7 +94,7 @@ function Addon:MakeDefaultOptions()
       },
     },
   }
-  local record = Addon:Copy(filters)
+  -- local record = Addon:Copy(filters)
   
   
   local fakeAddon = {
@@ -108,15 +108,24 @@ function Addon:MakeDefaultOptions()
       
       global = {
         
+        maxRollStorage = {
+          global = {
+            enable = false,
+            limit  = 50000,
+          },
+          character = {
+            enable = false,
+            limit  = 50000,
+          },
+        },
+        
         rolls = {},
         
-        characters = {
-          -- ["**"] = {},
-        },
+        characters = {},
         realms     = {},
         
         filters = filters,
-        record  = record,
+        -- record  = record,
         
         -- Debug options
         debug = false,

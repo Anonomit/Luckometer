@@ -55,9 +55,11 @@ do
         end,
       },
       AlwaysRun = function()
-        for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
-          self:SetGlobalOptionConfigQuiet(self.IndexedQueue(rolls), "rolls", guid)
-        end
+        self:DelayCalculationCallbacks(function()
+          for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+            self:SetGlobalOptionConfigQuiet(self.IndexedQueue(rolls), "rolls", guid)
+          end
+        end)
       end,
     },
   }

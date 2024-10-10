@@ -46,7 +46,7 @@ local FACTION_SORT = Addon:MakeLookupTable{"Alliance", "Horde", "Neutral", "Unkn
 local function GetOrderedGUIDS()
   local orderedGUIDs = {}
   local guidData     = {}
-  for guid, charData in pairs(Addon:GetGlobalOptionQuiet("characters")) do
+  for guid, charData in pairs(Addon:GetGlobalOptionQuiet"characters") do
     orderedGUIDs[#orderedGUIDs+1] = guid
     guidData[guid] = {charData.name, FACTION_SORT[Addon:GetFactionFromGUID(guid)], Addon:GetRealmFromGUID(guid)}
   end
@@ -207,16 +207,18 @@ local function MakeStatsOptions(opts, categoryName)
             self:NotifyChange()
           end, disabled).width = 0.5
           GUI:CreateExecute(opts, "None", self.L["None"], desc, function()
-            for guid in pairs(self:GetGlobalOptionQuiet"characters") do
-              self:SetGlobalOptionConfig(false, "filters", "character", "guid", guid)
-            end
-            self:NotifyChange()
+            self:DelayCalculationCallbacks(function()
+              for guid in pairs(self:GetGlobalOptionQuiet"characters") do
+                self:SetGlobalOptionConfig(false, "filters", "character", "guid", guid)
+              end
+            end)
           end, disabled).width = 0.5
           GUI:CreateExecute(opts, "Me", self.L["Me"], desc, function()
-            for guid in pairs(self:GetGlobalOptionQuiet"characters") do
-              self:SetGlobalOptionConfig(guid == self.MY_GUID, "filters", "character", "guid", guid)
-            end
-            self:NotifyChange()
+            self:DelayCalculationCallbacks(function()
+              for guid in pairs(self:GetGlobalOptionQuiet"characters") do
+                self:SetGlobalOptionConfig(guid == self.MY_GUID, "filters", "character", "guid", guid)
+              end
+            end)
           end, disabled).width = 0.5
           
           if self:CountKeys(factions) > 1 then
@@ -224,10 +226,11 @@ local function MakeStatsOptions(opts, categoryName)
             for _, faction in ipairs{self.L["Alliance"], self.L["Horde"], self.L["Neutral"], self.L["Unknown"]} do
               if factions[faction] then
                 GUI:CreateExecute(opts, faction, self.L[faction], desc, function()
-                  for guid, charData in pairs(self:GetGlobalOptionQuiet"characters") do
-                    self:SetGlobalOptionConfig(self:GetFactionFromGUID(guid) == faction, "filters", "character", "guid", guid)
-                  end
-                  self:NotifyChange()
+                  self:DelayCalculationCallbacks(function()
+                    for guid, charData in pairs(self:GetGlobalOptionQuiet"characters") do
+                      self:SetGlobalOptionConfig(self:GetFactionFromGUID(guid) == faction, "filters", "character", "guid", guid)
+                    end
+                  end)
                 end, disabled).width = 0.5
               end
             end
@@ -238,10 +241,11 @@ local function MakeStatsOptions(opts, categoryName)
             local SEX_IDS = {Male = 0, Female = 1}
             for _, sex in ipairs{"Male", "Female"} do
               GUI:CreateExecute(opts, sex, self.L[sex], desc, function()
-                for guid, charData in pairs(self:GetGlobalOptionQuiet"characters") do
-                  self:SetGlobalOptionConfig(charData.sex == SEX_IDS[sex], "filters", "character", "guid", guid)
-                end
-                self:NotifyChange()
+                self:DelayCalculationCallbacks(function()
+                  for guid, charData in pairs(self:GetGlobalOptionQuiet"characters") do
+                    self:SetGlobalOptionConfig(charData.sex == SEX_IDS[sex], "filters", "character", "guid", guid)
+                  end
+                end)
               end, disabled).width = 0.5
             end
           end
@@ -298,7 +302,7 @@ local function MakeStatsOptions(opts, categoryName)
           GUI:CreateToggle(opts, {"filters", "character", "guid", guid}, format("%s  (%d %s)", nameRealm, charRolls, self.L["|4Loot Roll:Loot Rolls;"]), nil, disabled).width = 1.8
           local option = GUI:CreateExecute(opts, "Obliterate", self.L["Obliterate"], desc, function() self:DeleteCharacter(guid) end, disabled)
           option.width = 0.7
-          option.confirm = function() return format("%s|n|n%d %s", format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], self:GetColoredNameRealmFromGUID(guid)), charRolls, self.L["|4Loot Roll:Loot Rolls;"]) end
+          option.confirm = function() return format("%s|n|n%d %s", format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], "|n" .. self:GetColoredNameRealmFromGUID(guid)), charRolls, self.L["|4Loot Roll:Loot Rolls;"]) end
         end
         opts = oldOpts
       end
@@ -313,22 +317,25 @@ local function MakeStatsOptions(opts, categoryName)
           local opts = GUI:CreateGroupBox(opts, self.L["Select"])
           
           GUI:CreateExecute(opts, "Unlimited", self.L["Unlimited"], desc, function()
-            self:SetGlobalOptionConfig(false,       "filters", "character", "level", "enable")
-            self:SetGlobalOptionConfig(1,           "filters", "character", "level", "min")
-            self:SetGlobalOptionConfig(maxCharLevel,"filters", "character", "level", "max")
-            self:NotifyChange()
+            self:DelayCalculationCallbacks(function()
+              self:SetGlobalOptionConfig(false,       "filters", "character", "level", "enable")
+              self:SetGlobalOptionConfig(1,           "filters", "character", "level", "min")
+              self:SetGlobalOptionConfig(maxCharLevel,"filters", "character", "level", "max")
+            end)
           end, disabled).width = 0.7
           GUI:CreateExecute(opts, "Max Level", self.L["Max Level"], desc, function()
-            self:SetGlobalOptionConfig(true,         "filters", "character", "level", "enable")
-            self:SetGlobalOptionConfig(maxCharLevel, "filters", "character", "level", "min")
-            self:SetGlobalOptionConfig(maxCharLevel, "filters", "character", "level", "max")
-            self:NotifyChange()
+            self:DelayCalculationCallbacks(function()
+              self:SetGlobalOptionConfig(true,         "filters", "character", "level", "enable")
+              self:SetGlobalOptionConfig(maxCharLevel, "filters", "character", "level", "min")
+              self:SetGlobalOptionConfig(maxCharLevel, "filters", "character", "level", "max")
+            end)
           end, disabled).width = 0.7
           GUI:CreateExecute(opts, "Below Max Level", format(self.L["%d-%d"], 1, maxCharLevel-1), desc, function()
-            self:SetGlobalOptionConfig(true,           "filters", "character", "level", "enable")
-            self:SetGlobalOptionConfig(1,              "filters", "character", "level", "min")
-            self:SetGlobalOptionConfig(maxCharLevel-1, "filters", "character", "level", "max")
-            self:NotifyChange()
+            self:DelayCalculationCallbacks(function()
+              self:SetGlobalOptionConfig(true,           "filters", "character", "level", "enable")
+              self:SetGlobalOptionConfig(1,              "filters", "character", "level", "min")
+              self:SetGlobalOptionConfig(maxCharLevel-1, "filters", "character", "level", "max")
+            end)
           end, disabled).width = 0.7
           
           local minLevel, maxLevel
@@ -413,15 +420,6 @@ local function MakeStatsOptions(opts, categoryName)
         local opts = GUI:CreateGroup(opts, "Loot Rolls", self.L["Loot Rolls"], nil, "tab")
         
         local disabled = not self:GetGlobalOption("filters", "group", "enable")
-        do
-          local opts = GUI:CreateGroupBox(opts, self.L["Win"])
-          
-          local color = not self:GetGlobalOption("filters", "group", "roll", "won", 0) and not self:GetGlobalOption("filters", "group", "roll", "won", 1) and "|cffff0000" or ""
-          GUI:CreateToggle(opts, {"filters", "group", "roll", "won", 1}, color .. self.L["Yes"], nil, disabled)
-          GUI:CreateToggle(opts, {"filters", "group", "roll", "won", 0}, color .. self.L["No"],  nil, disabled)
-        end
-        
-        GUI:CreateNewline(opts)
         
         do
           local validFilter = false
@@ -432,6 +430,16 @@ local function MakeStatsOptions(opts, categoryName)
           
           local color = validFilter and "" or "|cffff0000"
           GUI:CreateMultiDropdown(opts, {"filters", "group", "roll", "type"}, color .. self.L["Type"], desc, ROLL_TYPE_NAMES, disabled).width = 1.5
+        end
+        
+        GUI:CreateNewline(opts)
+        
+        do
+          local opts = GUI:CreateGroupBox(opts, self.L["Win"])
+          
+          local color = not self:GetGlobalOption("filters", "group", "roll", "won", 0) and not self:GetGlobalOption("filters", "group", "roll", "won", 1) and "|cffff0000" or ""
+          GUI:CreateToggle(opts, {"filters", "group", "roll", "won", 1}, color .. self.L["Yes"], nil, disabled)
+          GUI:CreateToggle(opts, {"filters", "group", "roll", "won", 0}, color .. self.L["No"],  nil, disabled)
         end
         
         GUI:CreateNewline(opts)
@@ -520,31 +528,34 @@ local function MakeStatsOptions(opts, categoryName)
         local opts = GUI:CreateGroupBox(opts, self.L["Select"])
         
         GUI:CreateExecute(opts, "Unlimited", self.L["Unlimited"], desc, function()
-          self:SetGlobalOptionConfig(false,     "filters", "manual", "roll", "limits", "min", "enable")
-          self:SetGlobalOptionConfig(0,         "filters", "manual", "roll", "limits", "min", "min")
-          self:SetGlobalOptionConfig(1000000-1, "filters", "manual", "roll", "limits", "min", "max")
-          self:SetGlobalOptionConfig(false,     "filters", "manual", "roll", "limits", "max", "enable")
-          self:SetGlobalOptionConfig(1,         "filters", "manual", "roll", "limits", "max", "min")
-          self:SetGlobalOptionConfig(1000000,   "filters", "manual", "roll", "limits", "max", "max")
-          self:NotifyChange()
+          self:DelayCalculationCallbacks(function()
+            self:SetGlobalOptionConfig(false,     "filters", "manual", "roll", "limits", "min", "enable")
+            self:SetGlobalOptionConfig(0,         "filters", "manual", "roll", "limits", "min", "min")
+            self:SetGlobalOptionConfig(1000000-1, "filters", "manual", "roll", "limits", "min", "max")
+            self:SetGlobalOptionConfig(false,     "filters", "manual", "roll", "limits", "max", "enable")
+            self:SetGlobalOptionConfig(1,         "filters", "manual", "roll", "limits", "max", "min")
+            self:SetGlobalOptionConfig(1000000,   "filters", "manual", "roll", "limits", "max", "max")
+          end)
         end, disabled).width = 0.7
         GUI:CreateExecute(opts, "1-100", format(self.L["%d-%d"], 1, 100), desc, function()
-          self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "min", "enable")
-          self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "min")
-          self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "max")
-          self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "max", "enable")
-          self:SetGlobalOptionConfig(100,  "filters", "manual", "roll", "limits", "max", "min")
-          self:SetGlobalOptionConfig(100,  "filters", "manual", "roll", "limits", "max", "max")
-          self:NotifyChange()
+          self:DelayCalculationCallbacks(function()
+            self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "min", "enable")
+            self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "min")
+            self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "max")
+            self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "max", "enable")
+            self:SetGlobalOptionConfig(100,  "filters", "manual", "roll", "limits", "max", "min")
+            self:SetGlobalOptionConfig(100,  "filters", "manual", "roll", "limits", "max", "max")
+          end)
         end, disabled).width = 0.7
         GUI:CreateExecute(opts, "1-99", format("%s %s %s", format(self.L["%d-%d"], 1, 2), self.L["-->"], format(self.L["%d-%d"], 1, 99)), desc, function()
-          self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "min", "enable")
-          self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "min")
-          self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "max")
-          self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "max", "enable")
-          self:SetGlobalOptionConfig(2,    "filters", "manual", "roll", "limits", "max", "min")
-          self:SetGlobalOptionConfig(99,   "filters", "manual", "roll", "limits", "max", "max")
-          self:NotifyChange()
+          self:DelayCalculationCallbacks(function()
+            self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "min", "enable")
+            self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "min")
+            self:SetGlobalOptionConfig(1,    "filters", "manual", "roll", "limits", "min", "max")
+            self:SetGlobalOptionConfig(true, "filters", "manual", "roll", "limits", "max", "enable")
+            self:SetGlobalOptionConfig(2,    "filters", "manual", "roll", "limits", "max", "min")
+            self:SetGlobalOptionConfig(99,   "filters", "manual", "roll", "limits", "max", "max")
+          end)
         end, disabled).width = 0.7
         
         local minmin, minmax
@@ -656,12 +667,52 @@ end
 
 
 
+--   ██████╗ ██████╗ ███╗   ██╗███████╗██╗ ██████╗      ██████╗ ██████╗ ████████╗██╗ ██████╗ ███╗   ██╗███████╗
+--  ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝     ██╔═══██╗██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║██╔════╝
+--  ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗    ██║   ██║██████╔╝   ██║   ██║██║   ██║██╔██╗ ██║███████╗
+--  ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║    ██║   ██║██╔═══╝    ██║   ██║██║   ██║██║╚██╗██║╚════██║
+--  ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝    ╚██████╔╝██║        ██║   ██║╚██████╔╝██║ ╚████║███████║
+--   ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝      ╚═════╝ ╚═╝        ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
+
 local function MakeConfigOptions(opts, categoryName)
   local self = Addon
   local GUI = self.GUI
   local opts = GUI:CreateGroup(opts, categoryName, categoryName, nil, "tab")
+  GUI:SetDBType"Global"
   
-  -- GUI:CreateToggle(opts, )
+  
+  
+  
+  do
+    local text = format("%s %s (%s)", self.L["Maximum"], self.L["|4Loot Roll:Loot Rolls;"], self.L["Total"])
+    local opts = GUI:CreateGroupBox(opts, text)
+    
+    GUI:CreateReverseToggle(opts, {"maxRollStorage", "global", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+    do
+      local disabled = disabled or not self:GetGlobalOption("maxRollStorage", "global", "enable")
+      
+      local option = GUI:CreateRange(opts, {"maxRollStorage", "global", "limit"}, self.L["Maximum"], nil, 1000, 1000000, 1000, disabled)
+      option.bigStep = 1000
+      option.softMax = 100000
+    end
+  end
+  
+  
+  do
+    local text = format("%s %s (%s)", self.L["Maximum"], self.L["|4Loot Roll:Loot Rolls;"], self.L["Character"])
+    local opts = GUI:CreateGroupBox(opts, text)
+    
+    GUI:CreateReverseToggle(opts, {"maxRollStorage", "character", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+    do
+      local disabled = disabled or not self:GetGlobalOption("maxRollStorage", "character", "enable")
+      
+      local option = GUI:CreateRange(opts, {"maxRollStorage", "character", "limit"}, self.L["Maximum"], nil, 1000, 1000000, 1000, disabled)
+      option.bigStep = 1000
+      option.softMax = 100000
+    end
+  end
+  
+  
   
   return opts
 end
@@ -748,6 +799,7 @@ local function MakeDebugOptions(opts, categoryName)
         {"rollEnded",   "Group Loot roll ended"},
         {"rollAdded",   "Roll stored"},
         
+        {"rollsFilterReset",     "Rolls filtering reset"},
         {"rollsFilterStarted",   "Rolls filtering started"},
         {"rollFilterProgress",   "Rolls filtering progress"},
         {"countUncachedItems",   "Count uncached items"},
@@ -790,9 +842,9 @@ function Addon:MakeAddonOptions(chatCmd)
   local sections = {}
   for _, data in ipairs{
     -- {MakeGeneralOptions, ADDON_NAME},
-    {MakeStatsOptions, self.L["Stats"], "stats"},
+    {MakeStatsOptions,  self.L["Stats"],   "stats"},
+    {MakeConfigOptions, self.L["Options"], "options"},
     
-    -- {MakeConfigOptions,  self.L["Options"], "options"},
     -- {MakeProfileOptions, "Profiles",        "profiles"},
     {MakeDebugOptions,   self.L["Debug"],   "debug"},
   } do

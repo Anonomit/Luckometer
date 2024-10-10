@@ -30,6 +30,26 @@ Addon:RegisterEnableCallback(function(self)
   -- Group Loot rolls
   do
     local lootRolls = {}
+    
+    -- look for rolls already in progress
+    self:RegisterEnableCallback(function(self)
+      for i = C_LootHistory.GetNumItems(), 1, -1 do
+        local rollID, itemLink, numPlayers, isDone, winnerID, isMasterLoot = C_LootHistory.GetItem(i)
+        if not lootRolls[rollID] and not isDone then
+          if self:GetGlobalOptionQuiet("debugOutput", "rollStarted") then
+            self.ItemCache(itemLink):OnCache(function()
+              self:DebugfIfOutput("rollStarted", "Found loot roll #%d (rollID %d) is in progress for %s", i, rollID, itemLink)
+            end)
+          end
+          lootRolls[rollID] = {
+            datetime = GetServerTime(),
+            isDone = false,
+          }
+        end
+      end
+    end)
+    
+    -- notice rolls that start
     self:RegisterEventCallback("START_LOOT_ROLL", function(self, e, rollID, rollTime, lootHandle)
       for i = 1, C_LootHistory.GetNumItems() do
         if C_LootHistory.GetItem(i) == rollID then
@@ -47,7 +67,7 @@ Addon:RegisterEnableCallback(function(self)
       end
     end)
     
-    -- LOOT_HISTORY_FULL_UPDATE
+    -- notice rolls that end
     self:RegisterEventCallback("LOOT_ROLLS_COMPLETE", function(self, e, lootHandle)
       
       for i = 1, C_LootHistory.GetNumItems() do

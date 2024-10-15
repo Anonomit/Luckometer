@@ -25,29 +25,27 @@ end
 
 
 
-Addon:RegisterEnableCallback(function(self)
+Addon:RegisterAddonEventCallback("ENABLE", function(self)
   
   -- Group Loot rolls
   do
     local lootRolls = {}
     
     -- look for rolls already in progress
-    self:RegisterEnableCallback(function(self)
-      for i = C_LootHistory.GetNumItems(), 1, -1 do
-        local rollID, itemLink, numPlayers, isDone, winnerID, isMasterLoot = C_LootHistory.GetItem(i)
-        if not lootRolls[rollID] and not isDone then
-          if self:GetGlobalOptionQuiet("debugOutput", "rollStarted") then
-            self.ItemCache(itemLink):OnCache(function()
-              self:DebugfIfOutput("rollStarted", "Found loot roll #%d (rollID %d) is in progress for %s", i, rollID, itemLink)
-            end)
-          end
-          lootRolls[rollID] = {
-            datetime = GetServerTime(),
-            isDone = false,
-          }
+    for i = C_LootHistory.GetNumItems(), 1, -1 do
+      local rollID, itemLink, numPlayers, isDone, winnerID, isMasterLoot = C_LootHistory.GetItem(i)
+      if not lootRolls[rollID] and not isDone then
+        if self:GetGlobalOptionQuiet("debugOutput", "rollStarted") then
+          self.ItemCache(itemLink):OnCache(function()
+            self:Debugf("Found loot roll #%d (rollID %d) is in progress for %s", i, rollID, itemLink)
+          end)
         end
+        lootRolls[rollID] = {
+          datetime = GetServerTime(),
+          isDone = false,
+        }
       end
-    end)
+    end
     
     -- notice rolls that start
     self:RegisterEventCallback("START_LOOT_ROLL", function(self, e, rollID, rollTime, lootHandle)
@@ -56,7 +54,7 @@ Addon:RegisterEnableCallback(function(self)
           local rollID, itemLink, numPlayers, isDone, winnerIdx, isMasterLoot = C_LootHistory.GetItem(i)
           if self:GetGlobalOptionQuiet("debugOutput", "rollStarted") then
             self.ItemCache(itemLink):OnCache(function()
-              self:DebugfIfOutput("rollStarted", "Loot roll #%d (rollID %d) started for %s", i, rollID, itemLink)
+              self:Debugf("Loot roll #%d (rollID %d) started for %s", i, rollID, itemLink)
             end)
           end
           lootRolls[rollID] = {
@@ -76,7 +74,7 @@ Addon:RegisterEnableCallback(function(self)
           if isDone and not lootRolls[rollID].isDone then
             if self:GetGlobalOptionQuiet("debugOutput", "rollEnded") then
               self.ItemCache(itemLink):OnCache(function()
-                self:DebugfIfOutput("rollEnded", "Loot roll #%d (rollID %d) ended for %s", i, rollID, itemLink)
+                self:Debugf("Loot roll #%d (rollID %d) ended for %s", i, rollID, itemLink)
               end)
             end
             lootRolls[rollID].isDone = true

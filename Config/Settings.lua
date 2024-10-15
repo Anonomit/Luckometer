@@ -99,13 +99,6 @@ function Addon:MakeDefaultOptions()
   
   local fakeAddon = {
     db = {
-      profile = {
-        
-        enabled = true,
-        
-        
-      },
-      
       global = {
         
         maxRollStorage = {
@@ -126,6 +119,12 @@ function Addon:MakeDefaultOptions()
         
         filters = filters,
         -- record  = record,
+        
+        calculations = {
+          filterSpeed = 100,
+          refreshAfterFilter = false,
+          startImmediately = true,
+        },
         
         -- Debug options
         debug = false,

@@ -123,7 +123,7 @@ do
     return requiresCache
   end
   
-  Addon:RegisterOptionSetHandler(function(self, val, ...)
+  Addon:RegisterAddonEventCallback("OPTION_SET", function(self, event, val, ...)
     local path = {...}
     if path[2] ~= "global" then return end
     if path[3] == "filters" then
@@ -156,28 +156,18 @@ end
 
 
 do
-  -- how many steps to perform at a time
-  local CALCULATION_SPEED = 100
-  
-  -- whether to refresh options menu when roll filtering is complete
-  local AUTO_NOTIFY = false
-  
-  
   local cacheController
   
   local function generator(self, data)
-    Addon:DebugIfOutput("rollsFilterStarted", "Rolls filtering started")
+    self:DebugIfOutput("rollsFilterStarted", "Rolls filtering started")
     
-    local startTime = GetTime()
-    
-    if not calculationSpeed then
-      calculationSpeed = CALCULATION_SPEED
-    end
+    local startTime = GetTimePreciseSec()
+    local calculationSpeed = self:GetGlobalOption("calculations", "filterSpeed")
     
     data.filteredRolls = {}
     local filteredRolls = data.filteredRolls
     
-    local count = 0
+    local ticker = self:MakeThreadTicker(calculationSpeed)
     local deserializedRolls = {}
     local itemsToCache = {}
     local itemsInCache = {}
@@ -185,19 +175,16 @@ do
     local store = deserializedRolls -- remove this line and uncomment the others when rolls need to be filtered in order
     
     -- gather rolls from db
-    for guid, rolls in pairs(Addon:GetGlobalOptionQuiet"rolls") do
-      if Addon:GetGlobalOption("filters", "character", "guid", guid) then--[[
+    for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+      if self:GetGlobalOption("filters", "character", "guid", guid) then--[[
         local store = {}
         deserializedRolls[#deserializedRolls+1] = store]]
         
-        for i, rollString in rolls:iter() do
-          count = count + 1
-          
-          local rollData = Addon:DeserializeRollData(rollString, i, guid)
+        for i, rollData in self:IterRollData(rolls, guid) do
           store[#store+1] = rollData
           
           if rollData.itemLink then
-            rollData.item = Addon.ItemCache(rollData.itemLink)
+            rollData.item = self.ItemCache(rollData.itemLink)
           end
             
           if not CanFilter(rollData) then
@@ -207,11 +194,7 @@ do
             end
           end
           
-          if count % calculationSpeed == 0 then
-            Addon:DebugIfOutput("rollFilterProgress", "Roll filtering is collecting rolls")
-            coroutine.yield()
-            count = 0
-          end
+          ticker:Tick(1, function() self:DebugIfOutput("rollFilterProgress", "Roll filtering is collecting rolls") end)
         end--[[
         if #store == 0 then
           deserializedRolls[#deserializedRolls] = nil
@@ -223,34 +206,33 @@ do
     
     --[[
     -- sort deserialized rolls
-    local deserializedRolls = Addon:MergeSorted(deserializedRolls)
+    ticker:SetCallback(function() self:DebugIfOutput("rollFilterProgress", "Roll filtering is sorting rolls") end)
+    local deserializedRolls = self:MergeSorted(deserializedRolls, nil, nil, ticker)
+    ticker:SetCallback()
     ]]
     
     -- cache missing items
     if #itemsToCache > 0 then
-      Addon:DebugfIfOutput("countUncachedItems", "Items to cache: %d", #itemsToCache)
-      cacheController = Addon.ItemCache:Cache(itemsToCache):SetSpeed(10)
+      self:DebugfIfOutput("countUncachedItems", "Items to cache: %d", #itemsToCache)
+      cacheController = self.ItemCache:Cache(itemsToCache):SetSpeed(10)
       while not cacheController:IsComplete() do
-        Addon:DebugIfOutput("rollFilterProgress", "Roll filtering is waiting for items to cache")
-        coroutine.yield()
-        count = 0
+        self:DebugIfOutput("rollFilterProgress", "Roll filtering is waiting for items to cache")
+        ticker:Trigger()
       end
-      Addon:DebugIfOutput("rollItemsCached", "Items cached")
+      self:DebugIfOutput("rollItemsCached", "Items cached")
     end
     
     
     -- do some math with the rolls
     local completed, totalRoll, totalScore = 0, 0, 0
     for _, rollData in ipairs(deserializedRolls) do
-      count = count + 1
-      
       if DoesRollPassFilter(rollData) then
         filteredRolls[#filteredRolls+1] = rollData
         
         local roll = rollData.roll
-        local rollScore = Addon:GetRollScore(roll, rollData.min, rollData.max)
-        if not Addon:IsStandardRoll(min, max) then
-          roll = Addon:GetAdjustedRoll(rollScore)
+        local rollScore = self:GetRollScore(roll, rollData.min, rollData.max)
+        if not self:IsStandardRoll(min, max) then
+          roll = self:GetAdjustedRoll(rollScore)
         end
         
         totalRoll  = totalRoll  + roll
@@ -258,11 +240,7 @@ do
       end
       completed = completed + 1
       
-      if count % calculationSpeed == 0 then
-        Addon:DebugIfOutput("rollFilterProgress", "Roll filtering is calculating final stats")
-        coroutine.yield()
-        count = 0
-      end
+      ticker:Tick(1, function() self:DebugIfOutput("rollFilterProgress", "Roll filtering is calculating final stats") end)
     end
     
     
@@ -281,26 +259,36 @@ do
       avgScore   = avgScore,
     }
     
-    Addon:DebugfIfOutput("rollsFilterCompleted", "Rolls filtering complete in %ss", self:Round(GetTime() - startTime, 0.001))
+    if self:GetGlobalOption("debugOutput", "rollsFilterCompleted") then
+      local totalTime = self:GetThreadRealTime"RollResults"
+      self:Debugf("Rolls filtering complete in %ss (worked %ss, %s%% load) with %s |4step:steps; over %s |4lap:laps;, resulting in %s average fps",
+        self:Round(totalTime, 0.001),
+        self:Round(self:GetThreadRunTime"RollResults", 0.001),
+        self:Round(self:GetThreadRunTime"RollResults" / totalTime * 100, 0.1),
+        self:ToFormattedNumber(ticker:GetSteps()),
+        self:ToFormattedNumber(ticker:GetLaps()),
+        self:Round(ticker:GetLaps() / totalTime, 0.1)
+      )
+    end
     
-    if AUTO_NOTIFY or data.notify then
-      Addon:NotifyChange()
+    if self:GetGlobalOption("calculations", "refreshAfterFilter") or data.refreshWhenDone then
+      self:RefreshConfig()
     end
   end
   
   
   
-  function Addon:StartRollCalculations(notify)
+  function Addon:StartRollCalculations(refreshWhenDone)
     Addon:DebugIfOutput("rollsFilterStarted", "Attempting to start/resume rolls filtering")
     local data = self:GetThreadData"RollResults"
-    if data and notify then
-      data.notify = true
+    if data and refreshWhenDone then
+      data.refreshWhenDone = true
     end
     
     if data and (data.results or not self:IsThreadDead"RollResults") then
       self:StartThread"RollResults"
     else
-      self:StartNewThread("RollResults", generator)
+      self:StartNewThread("RollResults", generator, not self:GetGlobalOption("calculations", "startImmediately"))
     end
   end
   
@@ -341,37 +329,35 @@ do
       manualEditMode = true
     end
     
-    function Addon:DelayCalculationCallbacks(func, ...)
-      self:BlockRecalculation()
-      
-      func(...)
-      
-      self:RestartRollCalculations()
-      self:NotifyChange()
+    function Addon:RestartFilteringAfter(func)
+      self:SuspendAddonEventWhile("RESET_FILTER_CALCULATIONS", func)
+      self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
     end
     
     
-    Addon:RegisterOptionSetHandler(function(self, val, ...)
+    
+    Addon:RegisterAddonEventCallback("RESET_FILTER_CALCULATIONS", function(self, event, ...)
+      self:RestartRollCalculations()
+    end)
+    
+    
+    Addon:RegisterAddonEventCallback("OPTION_SET", function(self, event, val, ...)
       if manualEditMode then return end
       
       local path = {...}
       if path[2] ~= "global" then return end
-      if path[3] == "filters" or path[3] == "rolls" then
-        self:RestartRollCalculations()
-        
-        if path[3] == "rolls" then
-          self:NotifyChange() -- making sure the research button is visible
-        end
+      if path[3] == "filters" then
+        self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
       end
     end)
   end
   
   
-  Addon:RegisterOptionsOpenPreCallback(function(self)
-    Addon:StartRollCalculations()
+  Addon:RegisterAddonEventCallback("OPTIONS_OPENED_PRE", function(self)
+    self:StartRollCalculations()
   end)
-  Addon:RegisterOptionsClosePostCallback(function(self)
-    Addon:StopRollCalculations()
+  Addon:RegisterAddonEventCallback("OPTIONS_CLOSED_POST", function(self)
+    self:StopRollCalculations()
   end)
 end
 

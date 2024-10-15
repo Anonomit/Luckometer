@@ -14,6 +14,10 @@ local strGsub  = string.gsub
 local tostring = tostring
 
 
+local function TrimSpaces(text)
+  return strMatch(strMatch(text, "^ *(.*)"), "^(.-) *$")
+end
+
 
 local locale = GetLocale()
 
@@ -164,41 +168,59 @@ L["%s rolls %d (%d-%d)"] = RANDOM_ROLL_RESULT
 
 
 
-L["Stats"]             = PET_BATTLE_STATS_LABEL
-L["Filters"]           = FILTERS
-L["Character"]         = CHARACTER
-L["Select"]            = LFG_LIST_SELECT
-L["Alliance"]          = FACTION_ALLIANCE
-L["Horde"]             = FACTION_HORDE
-L["Neutral"]           = FACTION_STANDING_LABEL4
-L["Male"]              = MALE
-L["Female"]            = FEMALE
-L["None"]              = NPC_NAMES_DROPDOWN_NONE
-L["Me"]                = COMBATLOG_FILTER_STRING_ME
-L["Any level"]         = GUILD_RECRUITMENT_ANYLEVEL
-L["Level"]             = LEVEL
-L["Level Range"]       = LEVEL_RANGE
-L["Level Range:"]      = BATTLEFIELD_LEVEL
-L["%d-%d"]             = PVP_RECORD_DESCRIPTION
-L["Level %d"]          = UNIT_LEVEL_TEMPLATE
-L["-->"]               = function() return strMatch(SELECT_CATEGORY, "^%S+") end
-L["Max Level"]         = GUILD_RECRUITMENT_MAXLEVEL
-L["Level %d-%d"]       = MEETINGSTONE_LEVEL
-L["Obliterate"]        = OBLITERATE_BUTTON
+L["General Options"]  = COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL
+L["Advanced Options"] = ADVANCED_OPTIONS
+L["Chat Options"]     = CHAT_OPTIONS_LABEL
+L["Loot Options"]     = UNIT_FRAME_DROPDOWN_SUBSECTION_TITLE_LOOT
+L["Help"]             = HELP_LABEL
+L["These options can improve ease of access."] = ACCESSIBILITY_SUBTEXT
+L["Show Tutorials"]   = SHOW_TUTORIALS
 
-L["Group Loot"]        = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
-L["/roll"]             = SLASH_RANDOM7
-L["Win"]               = WIN
-L["Players"]           = TUTORIAL_TITLE19
-L["Type"]              = TYPE
-L["Need"]              = NEED
-L["Greed"]             = GREED
-L["Disenchant"]        = ROLL_DISENCHANT
-L["Items"]             = ITEMS
-L["Item Quality"]      = COLORBLIND_ITEM_QUALITY
-L["Item Level"]        = LFG_LIST_ITEM_LEVEL_INSTR_SHORT
-L["Limit to %s"]       = LFG_LIST_CROSS_FACTION
-L["Unlimited"]         = UNLIMITED
+L["Please select one of the following options:"] = HARASSMENT_TEXT
+
+
+
+L["Total"]   = TOTAL
+L["Total:"]  = FROM_TOTAL
+L["Average"] = GMSURVEYRATING3
+L["Score:"]  = PROVING_GROUNDS_SCORE
+
+L["Stats"]        = PET_BATTLE_STATS_LABEL
+L["Filters"]      = FILTERS
+L["Filter %s"]    = function() return strGsub(DEFAULT_COMBATLOG_FILTER_NAME, "%%d", "%%s") end
+L["Character"]    = CHARACTER
+L["Select"]       = LFG_LIST_SELECT
+L["Alliance"]     = FACTION_ALLIANCE
+L["Horde"]        = FACTION_HORDE
+L["Neutral"]      = FACTION_STANDING_LABEL4
+L["Male"]         = MALE
+L["Female"]       = FEMALE
+L["None"]         = NPC_NAMES_DROPDOWN_NONE
+L["Me"]           = COMBATLOG_FILTER_STRING_ME
+L["Any level"]    = GUILD_RECRUITMENT_ANYLEVEL
+L["Level"]        = LEVEL
+L["Level Range"]  = LEVEL_RANGE
+L["Level Range:"] = BATTLEFIELD_LEVEL
+L["%d-%d"]        = PVP_RECORD_DESCRIPTION
+L["Level %d"]     = UNIT_LEVEL_TEMPLATE
+L["-->"]          = function() return strMatch(SELECT_CATEGORY, "^%S+") end
+L["Max Level"]    = GUILD_RECRUITMENT_MAXLEVEL
+L["Level %d-%d"]  = MEETINGSTONE_LEVEL
+L["Obliterate"]   = OBLITERATE_BUTTON
+
+L["Group Loot"]   = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
+L["/roll"]        = SLASH_RANDOM7
+L["Win"]          = WIN
+L["Players"]      = TUTORIAL_TITLE19
+L["Type"]         = TYPE
+L["Need"]         = NEED
+L["Greed"]        = GREED
+L["Disenchant"]   = ROLL_DISENCHANT
+L["Items"]        = ITEMS
+L["Item Quality"] = COLORBLIND_ITEM_QUALITY
+L["Item Level"]   = LFG_LIST_ITEM_LEVEL_INSTR_SHORT
+L["Limit to %s"]  = LFG_LIST_CROSS_FACTION
+L["Unlimited"]    = UNLIMITED
 
 
 L["Loot Roll"]               = LOOT_ROLL
@@ -208,9 +230,10 @@ L["Click to Research"]       = ORDER_HALL_TALENT_RESEARCH
 L["Processing..."]           = BLIZZARD_STORE_PROCESSING
 L["Research Complete"]       = GARRISON_TALENT_RESEARCH_COMPLETE
 
-L["Total"]   = TOTAL
-L["Average"] = GMSURVEYRATING3
-L["Score:"]  = PROVING_GROUNDS_SCORE
+
+L["AddOn Memory"] = function() return TrimSpaces(strMatch(TOTAL_MEM_KB_ABBR, "[^:]+")) end
+L["%s (Full)"] = BATTLEFIELD_FULL
+L["Cleanup"]   = BAG_FILTER_CLEANUP
 
 L["N/A"] = NOT_APPLICABLE
 

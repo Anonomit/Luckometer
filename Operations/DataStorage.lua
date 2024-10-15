@@ -11,8 +11,10 @@ local AceSerializer = Addon.AceSerializer
 
 local strMatch = string.match
 
+local tblSort   = table.sort
 local tblConcat = table.concat
 
+local mathFloor = math.floor
 
 
 
@@ -37,7 +39,30 @@ do
       else
         return self.index < o.index
       end
-    end
+    end,
+    __tostring = function(self)
+      return Addon:DataToString{
+        {"guid",   self.guid},
+        {"player", self.guid and Addon:GetColoredNameRealmFromGUID(self.guid) or nil},
+        {"index",  self.index},
+        
+        {"datetime",   self.datetime},
+        {"date",       Addon:GetFriendlyDate(self.datetime)},
+        {"level",      self.level},
+        {"luckyItems", self.luckyItems and format("{%s}", tblConcat(self.luckyItems, ", "))},
+        {"roll",       self.roll},
+        
+        {"type", self.manual and "manual" or "group"},
+        
+        {"min",  Addon:ShortCircuit(self.min == 1,   nil, self.min)},
+        {"max",  Addon:ShortCircuit(self.max == 100, nil, self.max)},
+        
+        {"numPlayers", self.numPlayers},
+        {"itemLink",   self.itemLink},
+        {"won",        self.won},
+        {"rollType",   self.rollType == 1 and "Need" or self.rollType == 2 and "Greed" or self.rollType == 3 and "Disenchant" or self.rollType},
+      }
+    end,
   }
   
   function Addon:SerializeRollData(rollData)
@@ -75,6 +100,30 @@ do
   end
 end
 
+do
+  local function MapRoll(guid, id, rollString)
+    local rollData = Addon:DeserializeRollData(rollString, id, guid)
+    return id, rollData
+  end
+
+  function Addon:IterRollData(rolls, guid)
+    return Addon:MapIter(function(id, rollString) return MapRoll(guid, id, rollString) end, rolls:iter())
+  end
+end
+
+
+
+function Addon:GetFriendlyDate(datetime)
+  local d = C_DateAndTime.GetCalendarTimeFromEpoch(datetime*1e6)
+  
+  local weekDay = CALENDAR_WEEKDAY_NAMES[d.weekday]
+  local month   = CALENDAR_FULLDATE_MONTH_NAMES[d.month]
+  
+  -- local text = format("%02d:%02d, %s, %d %s %d", d.hour, d.minute, weekDay, d.monthDay, month, d.year)
+  local text = format("%d-%02d-%02d %02d:%02d", d.year, d.month, d.monthDay, d.hour, d.minute)
+  
+  return text
+end
 
 
 
@@ -111,7 +160,7 @@ local function StoreCharacter()
       end
     end
     if changed then
-      self:SetGlobalOptionQuiet(characterData, "characters", self.MY_GUID)
+      self:SetGlobalOption(characterData, "characters", self.MY_GUID)
     end
   end
 end
@@ -122,17 +171,16 @@ function Addon:DeleteCharacter(guid)
   
   local nameRealm = self:GetColoredNameRealmFromGUID(guid)
   
-  self:ResetGlobalOptionConfigQuiet("filters", "character", "guid", guid)
-  self:ResetGlobalOptionConfigQuiet("characters", guid)
-  
-  local count = self:GetGlobalOptionQuiet("rolls", guid):GetCount()
-  self:ResetGlobalOptionConfigQuiet("rolls", guid)
+  local count = 0
+  self:RestartFilteringAfter(function()
+    self:ResetGlobalOptionQuiet("filters", "character", "guid", guid)
+    self:ResetGlobalOptionQuiet("characters", guid)
+    
+    count = self:GetGlobalOptionQuiet("rolls", guid):GetCount()
+    self:ResetGlobalOptionQuiet("rolls", guid)
+  end)
   
   self:DebugfIfOutput("charDeleted", "Deleted %s and %d |4roll:rolls;", nameRealm, count)
-  
-  if count > 0 then
-    self:NotifyChange()
-  end
   return count
 end
 
@@ -153,35 +201,91 @@ function Addon:StoreRoll(rollData)
   local guid = self.MY_GUID
   
   local rollString = self:SerializeRollData(rollData)
-  local rolls = self:GetGlobalOptionQuiet("rolls")
+  local rolls = self:GetGlobalOptionQuiet"rolls"
   if not rolls[guid] then
     rolls[guid] = self.IndexedQueue()
   end
-  rolls[guid]:Add(rollString)
-  self:SetGlobalOptionConfigQuiet(rolls[guid], "rolls", guid) -- run callbacks
   
-  if self:GetGlobalOptionQuiet("debugOutput", "rollAdded") then
-    self:DebugfIfOutput("rollAdded", "Roll stored for %s", guid)
-    self:DebugData{
-      {"datetime",   rollData.datetime},
-      {"level",      rollData.level},
-      {"luckyItems", rollData.luckyItems and format("{%s}", tblConcat(rollData.luckyItems, ", "))},
-      {"roll",       rollData.roll},
-      
-      {"type", rollData.manual and "manual" or "group"},
-      
-      {"min",  self:ShortCircuit(rollData.min == 1,   nil, rollData.min)},
-      {"max",  self:ShortCircuit(rollData.max == 100, nil, rollData.max)},
-      
-      {"numPlayers", rollData.numPlayers},
-      {"itemLink",   rollData.itemLink},
-      {"won",        rollData.won},
-      {"rollType",   rollData.rollType == 1 and "Need" or rollData.rollType == 2 and "Greed" or rollData.rollType == 3 and "Disenchant" or rollData.rollType},
-    }
+  local globalCompliance, guidCompliance = true, true
+  if self:GetGlobalOption("maxRollStorage", "character", "enable") then
+    guidCompliance = rolls[guid]:GetCount() == self:GetGlobalOption("maxRollStorage", "character", "limit")
+  end
+  if guidCompliance and self:GetGlobalOption("maxRollStorage", "global", "enable") then
+    globalCompliance = self:CountRolls() == self:GetGlobalOption("maxRollStorage", "global", "limit")
   end
   
-  self:NotifyChange()
+  
+  local id = rolls[guid]:Add(rollString)
+  if self:GetGlobalOptionQuiet("debugOutput", "rollAdded") then
+    self:Debugf("Roll stored for %s (%s)|n%s", self:GetColoredNameRealmFromGUID(guid), guid, tostring(self:DeserializeRollData(rollString, id, guid)))
+  end
+  
+  local trimmed
+  if guidCompliance then
+    trimmed = self:TrimRolls(guid, 1)
+  end
+  if globalCompliance and not trimmed then
+    self:TrimRolls(nil, 1)
+  end
+  
+  
+  self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
+  self:RefreshConfig()
 end
+
+
+function Addon:TrimRolls(guid, max)
+  local key = guid and "character" or "global"
+  if not self:GetGlobalOption("maxRollStorage", key, "enable") then return end
+  local limit = self:GetGlobalOption("maxRollStorage", key, "limit")
+  
+  if guid then
+    local rolls = self:GetGlobalOptionQuiet("rolls", guid)
+    
+    max = max or (rolls:GetCount() - limit)
+    
+    local count = 0
+    while rolls:GetCount() > limit and count < max do
+      local head = rolls:GetHead()
+      local rollString = rolls:PopHead()
+      self:DebugfIfOutput("rollRemoved", "Deleted roll:|n%s", tostring(self:DeserializeRollData(rollString, head, guid)))
+      count = count + 1
+    end
+    
+    if count > 0 then
+      self:DebugfIfOutput("rollRemoved", "Trimmed %d rolls from %s", self:ToFormattedNumber(count), guid)
+      -- rolls:Defrag()
+      return true
+    end
+  else
+    local total = self:CountRolls()
+    
+    max = max or (total - limit)
+    
+    local count = 0
+    local guidRolls = {}
+    for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+      guidRolls[#guidRolls+1] = {self:IterRollData(rolls, guid)}
+    end
+    local oldestRolls = Addon:MergeSorted(guidRolls, nil, max)
+    
+    for _, roll in ipairs(oldestRolls) do
+      local rolls = self:GetGlobalOptionQuiet("rolls", roll.guid)
+      rolls[roll.index] = nil
+      self:DebugfIfOutput("rollRemoved", "Deleted roll:|n%s", tostring(roll))
+      count = count + 1
+    end
+    
+    if count > 0 then
+      self:DebugfIfOutput("rollRemoved", "Trimmed %d rolls", self:ToFormattedNumber(count))
+      for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+        -- rolls:Defrag()
+      end
+      return true
+    end
+  end
+end
+
 
 
 function Addon:CountRolls()

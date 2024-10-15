@@ -18,18 +18,10 @@ do
   local shared = {}
   
   dbInitFuncs = {
-    profile = {
-      FirstRun = nil,
-      upgrades = {
-        
-      },
-      AlwaysRun = nil,
-    },
     global = {
       FirstRun = nil,
       upgrades = {
         ["1.3.0"] = function()
-        
           -- separate rolls by guid
           local newRolls = {}
           
@@ -47,19 +39,17 @@ do
             
             newRolls[guid]:Add(self:SerializeRollData(rollData))
           end
-          self:SetGlobalOptionConfigQuiet(newRolls, "rolls")
+          self:SetGlobalOptionQuiet(newRolls, "rolls")
           
           
           -- reset filters setting
-          self:ResetGlobalOptionConfigQuiet"filters"
+          self:ResetGlobalOptionQuiet"filters"
         end,
       },
       AlwaysRun = function()
-        self:DelayCalculationCallbacks(function()
-          for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
-            self:SetGlobalOptionConfigQuiet(self.IndexedQueue(rolls), "rolls", guid)
-          end
-        end)
+        for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+          self.IndexedQueue(rolls)
+        end
       end,
     },
   }
@@ -71,20 +61,19 @@ function Addon:OnInitialize()
   self.db        = self.AceDB:New(("%sDB"):format(ADDON_NAME), self:MakeDefaultOptions(), true)
   self.dbDefault = self.AceDB:New({}                         , self:MakeDefaultOptions(), true)
   
-  self:RunInitializeCallbacks()
+  self:FireAddonEvent"INITIALIZE"
 end
 
 function Addon:OnEnable()
   self.version = self.SemVer(GetAddOnMetadata(ADDON_NAME, "Version"))
-  self:InitDB(dbInitFuncs, "global")
-  self:InitDB(dbInitFuncs, "profile")
+  self:InitDB(dbInitFuncs)
   self:GetDB().RegisterCallback(self, "OnProfileChanged", function() self:InitDB(dbInitFuncs, "profile") end)
   self:GetDB().RegisterCallback(self, "OnProfileCopied" , function() self:InitDB(dbInitFuncs, "profile") end)
   self:GetDB().RegisterCallback(self, "OnProfileReset"  , function() self:InitDB(dbInitFuncs, "profile") end)
   
   self:InitChatCommands("lucky", "lm", "lom", "l-o-m", "lucko", "luck-o", "luck-o-meter", "luck-o-metre", "luckometre", ADDON_NAME:lower())
   
-  self:RunEnableCallbacks()
+  self:FireAddonEvent"ENABLE"
 end
 
 function Addon:OnDisable()

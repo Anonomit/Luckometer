@@ -166,6 +166,16 @@ do
   end
   
   function Addon:DebugData(t)
+    if IsDebugSuppressed() then return end
+    return self:Debug(self:DataToString(t))
+  end
+  function Addon:DebugDataIf(keys, ...)
+    if self.GetOption and self:GetOption(unpack(keys)) then
+      return self:DebugData(...)
+    end
+  end
+  
+  function Addon:DataToString(t)
     local texts = {}
     for _, data in ipairs(t) do
       if data[2] ~= nil then
@@ -176,12 +186,7 @@ do
         end
       end
     end
-    self:Debug(tblConcat(texts, ", "))
-  end
-  function Addon:DebugDataIf(keys, ...)
-    if self.GetOption and self:GetOption(unpack(keys)) then
-      return self:DebugData(...)
-    end
+    return tblConcat(texts, ", ")
   end
   
   
@@ -198,16 +203,16 @@ do
       return nop
     end
     -- calls func in protected mode. errors are announced (if lua errors are enabled in debug settings) and then passed to errFunc. errFunc errors silently. non-blocking.
-    function Addon:xpcall(func, errFunc)
-      return xpcall(func, GetErrorHandler(errFunc))
+    function Addon:xpcall(func, errFunc, ...)
+      return xpcall(func, GetErrorHandler(errFunc), ...)
     end
     -- calls func in protected mode. errors passed to errFunc if it exists. errFunc errors silently. non-blocking.
-    function Addon:xpcallSilent(func, errFunc)
-      return xpcall(func, errFunc or nop)
+    function Addon:xpcallSilent(func, errFunc, ...)
+      return xpcall(func, errFunc or nop, ...)
     end
     -- calls func in protected mode. errors silently passed to errFunc. blocking, as long as errFunc errors. error is never silent.
-    function Addon:pcall(func, errFunc)
-      local t = {pcall(func)}
+    function Addon:pcall(func, errFunc, ...)
+      local t = {pcall(func, ...)}
       if not t[1] then
         errFunc(unpack(t, 2))
       end
@@ -362,6 +367,17 @@ do
     return DeepCopy(val, {})
   end
   
+  function Addon:Concat(separator, ...)
+    local t = {...}
+    for i = 1, select("#", ...) do
+      local v = t[i]
+      if type(v) ~= "string" then
+        t[i] = tostring(v)
+      end
+    end
+    return tblConcat(t, separator)
+  end
+  
   function Addon:TableConcat(tbl, separator)
     local t = {}
     for i, v in ipairs(tbl) do
@@ -486,6 +502,17 @@ do
     end
   end
   
+  
+  function Addon:MapIter(map, iter, a, k, ...)
+    return function(a, k, ...)
+      local vals = {iter(a, k, ...)}
+      if vals[1] then
+        return map(unpack(vals, 1, select("#", ...) + 2))
+      end
+    end, a, k, ...
+  end
+  
+  
   -- IndexedQueue
   do
     local function GetPrev(t, i)
@@ -583,9 +610,14 @@ do
       return value
     end
     
-    function IndexedQueue:Pop()
+    function IndexedQueue:PopHead()
+      local head = Addon:CheckTable(self, "head")
+      Addon:AssertLevel(2, head, "Attempted to pop head while empty")
+      return IndexedQueue.Remove(self, head)
+    end
+    function IndexedQueue:PopTail()
       local tail = Addon:CheckTable(self, "tail")
-      Addon:AssertLevel(2, tail, "Attempted to pop while empty")
+      Addon:AssertLevel(2, tail, "Attempted to pop tail while empty")
       return IndexedQueue.Remove(self, tail)
     end
     
@@ -608,7 +640,6 @@ do
     function IndexedQueue:CanDefrag()
       return Addon:CheckTable(self, "nextIndex") ~= Addon:CheckTable(self, "count") + 1
     end
-    
     function IndexedQueue:Defrag()
       if not IndexedQueue.CanDefrag(self) then return end
       
@@ -651,7 +682,6 @@ do
         return id, v
       end
     end
-    
     function IndexedQueue:prev(id)
       if id ~= nil then
         id = GetPrev(self, id)
@@ -668,7 +698,6 @@ do
     function IndexedQueue:iter()
       return IndexedQueue.next, self, nil
     end
-    
     function IndexedQueue:riter()
       return IndexedQueue.prev, self, nil
     end
@@ -676,7 +705,6 @@ do
     function IndexedQueue:GetHead()
       return IndexedQueue.next(self)
     end
-    
     function IndexedQueue:GetTail()
       return IndexedQueue.prev(self)
     end
@@ -860,11 +888,14 @@ do
     
     --[[
     input = {
-      {ipairs(t1)},
-      {t2.iter},
+      {ipairs(t)},
+      {pairs(t)},
+      {iter, t, 0},
+      {next, t, nil},
+      {t2:iter()},
     }
     ]]
-    function Addon:MergeSorted(input, SortFunc)
+    function Addon:MergeSorted(input, SortFunc, outputSizeLimit, ticker)
       local nodeMeta = {
         __lt = SortFunc and function(self, o)
           return SortFunc(self.val, o.val)
@@ -880,6 +911,8 @@ do
         }, nodeMeta)
       end
       
+      local count = 0
+      
       local output = {}
       local pq = self.PriorityQueue(SortFunc)
       
@@ -890,9 +923,12 @@ do
         if i then
           pq:Add(Node(v, row, 1))
         end
+        if ticker then
+          ticker:Tick()
+        end
       end
       
-      while pq:Peek() do
+      while pq:Peek() and (not outputSizeLimit or #output < outputSizeLimit) do
         local node = pq:Pop()
         output[#output+1] = node.val
         
@@ -901,6 +937,9 @@ do
         local i, v = row[1](row[2], node.col)
         if i then
           pq:Add(Node(v, node.row, i))
+        end
+        if ticker then
+          ticker:Tick()
         end
       end
       
@@ -1221,231 +1260,6 @@ end
 
 
 
-
---  ██████╗  █████╗ ████████╗ █████╗ ██████╗  █████╗ ███████╗███████╗
---  ██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔════╝
---  ██║  ██║███████║   ██║   ███████║██████╔╝███████║███████╗█████╗  
---  ██║  ██║██╔══██║   ██║   ██╔══██║██╔══██╗██╔══██║╚════██║██╔══╝  
---  ██████╔╝██║  ██║   ██║   ██║  ██║██████╔╝██║  ██║███████║███████╗
---  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝
-
-do
-  local onOptionSetHandlers = {}
-  function Addon:RegisterOptionSetHandler(func)
-    tinsert(onOptionSetHandlers, func)
-    return #onOptionSetHandlers
-  end
-  function Addon:UnregisterOptionSetHandler(id)
-    onOptionSetHandlers[id] = nil
-  end
-  
-  local function OnOptionSet(self, val, ...)
-    if not self:GetDB() then return end -- db hasn't loaded yet
-    self:DebugfIfOutput("optionSet", "Setting %s: %s", strjoin(" > ", ...), tostring(val))
-    for id, func in next, onOptionSetHandlers, nil do
-      if type(func) == "function" then
-        func(self, val, ...)
-      else
-        self[func](self, val, ...)
-      end
-    end
-  end
-  
-  local dbTables = {
-    {"dbDefault", "Default", true},
-    {"db", ""},
-  }
-  local dbTypes = {
-    {"profile", ""},
-    {"global", "Global"},
-  }
-  
-  local defaultKey, defaultName
-  
-  for _, dbType in ipairs(dbTables) do
-    local dbKey, dbName, isDefault = unpack(dbType, 1, 3)
-    if isDefault then
-      defaultKey  = dbKey
-      defaultName = dbName
-    end
-    
-    local IsDBLoaded = format("Is%sDBLoaded", dbName)
-    local GetDB      = format("Get%sDB",      dbName)
-    
-    Addon[IsDBLoaded] = function(self)
-    return self[dbKey] ~= nil
-    end
-    Addon[GetDB] = function(self)
-      return self[dbKey]
-    end
-    
-    for _, dbSection in ipairs(dbTypes) do
-      local typeKey, typeName = unpack(dbSection, 1, 2)
-      
-      local GetOption             = format("Get%s%sOption",      dbName,      typeName)
-      local GetOptionQuiet        = format("Get%s%sOptionQuiet", dbName,      typeName)
-      local GetDefaultOption      = format("Get%s%sOption",      defaultName, typeName)
-      local GetDefaultOptionQuiet = format("Get%s%sOptionQuiet", defaultName, typeName)
-      
-      Addon[GetOptionQuiet] = function(self, ...)
-        assert(self[dbKey], format("Attempted to access database before initialization: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > ")))
-        local val = self[dbKey][typeKey]
-        for _, key in ipairs{...} do
-          assert(type(val) == "table", format("Bad database access: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > ")))
-          val = val[key]
-        end
-        return val
-      end
-      
-      Addon[GetOption] = function(self, ...)
-        local val = Addon[GetOptionQuiet](self, ...)
-        if type(val) == "table" then
-          Addon:Warnf("Database request returned a table: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "))
-        end
-        if val == nil then
-          Addon:Warnf("Database request found empty value: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "))
-        end
-        return val
-      end
-      
-      if not isDefault then
-        local SetOption               = format("Set%s%sOption",               dbName, typeName)
-        local SetOptionQuiet          = format("Set%s%sOptionQuiet",          dbName, typeName)
-        local SetOptionConfig         = format("Set%s%sOptionConfig",         dbName, typeName)
-        local SetOptionConfigQuiet    = format("Set%s%sOptionConfigQuiet",    dbName, typeName)
-        local ToggleOption            = format("Toggle%s%sOption",            dbName, typeName)
-        local ToggleOptionQuiet       = format("Toggle%s%sOptionQuiet",       dbName, typeName)
-        local ToggleOptionConfig      = format("Toggle%s%sOptionConfig",      dbName, typeName)
-        local ToggleOptionConfigQuiet = format("Toggle%s%sOptionConfigQuiet", dbName, typeName)
-        local ResetOption             = format("Reset%s%sOption",             dbName, typeName)
-        local ResetOptionQuiet        = format("Reset%s%sOptionQuiet",        dbName, typeName)
-        local ResetOptionConfig       = format("Reset%s%sOptionConfig",       dbName, typeName)
-        local ResetOptionConfigQuiet  = format("Reset%s%sOptionConfigQuiet",  dbName, typeName)
-        
-        local function Set(self, quiet, config, val, ...)
-          assert(self[dbKey], format("Attempted to access database before initialization: %s = %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "), tostring(val)))
-          local keys = {...}
-          local lastKey = tblRemove(keys, #keys)
-          local tbl = self[dbKey][typeKey]
-          for _, key in ipairs(keys) do
-            assert(type(tbl[key]) == "table", format("Bad database access: %s = %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "), tostring(val)))
-            tbl = tbl[key]
-          end
-          local lastVal = tbl[lastKey]
-          if not quiet and type(lastVal) == "table" then
-            Addon:Warnf("Database access overwriting a table: %s", Addon:TableConcat({dbKey, typeKey, ...}, " > "))
-          end
-          tbl[lastKey] = val
-          OnOptionSet(Addon, val, dbKey, typeKey, ...)
-          if not config then
-            Addon:NotifyChange()
-          end
-          return lastVal ~= val
-        end
-        
-        Addon[SetOption] = function(self, val, ...)
-          return Set(self, false, false, val, ...)
-        end
-        Addon[SetOptionConfig] = function(self, val, ...)
-          return Set(self, false, true, val, ...)
-        end
-        Addon[SetOptionQuiet] = function(self, val, ...)
-          return Set(self, true, false, val, ...)
-        end
-        Addon[SetOptionConfigQuiet] = function(self, val, ...)
-          return Set(self, true, true, val, ...)
-        end
-        
-        Addon[ToggleOption] = function(self, ...)
-          return self[SetOption](self, not self[GetOption](self, ...), ...)
-        end
-        Addon[ToggleOptionConfig] = function(self, ...)
-          return self[SetOptionConfig](self, not self[GetOption](self, ...), ...)
-        end
-        Addon[ToggleOptionQuiet] = function(self, ...)
-          return self[SetOptionQuiet](self, not self[GetOptionQuiet](self, ...), ...)
-        end
-        Addon[ToggleOptionConfigQuiet] = function(self, ...)
-          return self[SetOptionConfigQuiet](self, not self[GetOptionQuiet](self, ...), ...)
-        end
-        
-        Addon[ResetOption] = function(self, ...)
-          return self[SetOption](self, Addon.Copy(self, self[GetDefaultOption](self, ...)), ...)
-        end
-        Addon[ResetOptionConfig] = function(self, ...)
-          return self[SetOptionConfig](self, Addon.Copy(self, self[GetDefaultOption](self, ...)), ...)
-        end
-        Addon[ResetOptionQuiet] = function(self, ...)
-          return self[SetOptionQuiet](self, Addon.Copy(self, self[GetDefaultOptionQuiet](self, ...)), ...)
-        end
-        Addon[ResetOptionConfigQuiet] = function(self, ...)
-          return self[SetOptionConfigQuiet](self, Addon.Copy(self, self[GetDefaultOptionQuiet](self, ...)), ...)
-        end
-      end
-    end
-  end
-  
-  
-  local function GetOrderedUpgrades(upgrades)
-    local versions = {}
-    for version, func in pairs(upgrades) do
-      versions[#versions+1] = version
-    end
-    
-    tblSort(versions, function(a, b) return Addon.SemVer(a) < Addon.SemVer(b) end)
-    
-    local i = 0
-    return function()
-      i = i + 1
-      local version = versions[i]
-      if version then
-        return version, upgrades[version]
-      end
-    end
-  end
-  
-  function Addon:InitDB(dbInitFuncs, configType)
-    local init = dbInitFuncs[configType]
-    local db = self:GetDB()[configType]
-    
-    local oldVersion = db.version
-    local currentVersion = tostring(self.version)
-    
-    if not oldVersion then
-      if init.FirstRun then
-        self:Debugf("Initializing %s db", tostring(configType))
-        
-        self:pcall(init.FirstRun, function(err)
-          self:Errorf("FirstRun failed for %s db\n%s", tostring(configType))
-        end)
-      end
-    elseif oldVersion ~= currentVersion then
-      
-      for version, Upgrade in GetOrderedUpgrades(init.upgrades) do
-        if self.SemVer(oldVersion) < self.SemVer(version) then
-          self:Debugf("Updating %s db from %s to %s", tostring(configType), tostring(oldVersion), version)
-          
-          self:pcall(Upgrade, function(err)
-            self:Errorf("Data upgrade from %s to %s failed for %s db\n%s", tostring(oldVersion), tostring(version), tostring(configType), tostring(err))
-          end)
-        end
-      end
-    end
-    
-    if init.AlwaysRun then
-      self:pcall(init.AlwaysRun, function(err)
-        self:Errorf("AlwaysRun failed for %s db\n%s", tostring(configType))
-      end)
-    end
-    
-    db.version = currentVersion
-  end
-end
-
-
-
-
-
 --  ███████╗██╗   ██╗███████╗███╗   ██╗████████╗███████╗
 --  ██╔════╝██║   ██║██╔════╝████╗  ██║╚══██╔══╝██╔════╝
 --  █████╗  ██║   ██║█████╗  ██╔██╗ ██║   ██║   ███████╗
@@ -1464,103 +1278,151 @@ do
     end
   end
   
-  local nextRegistrationID = 1
-  local registrations      = {}
-  local onEventCallbacks   = {}
-  local function OnEvent(event, ...)
+  local addonEventSalt = ADDON_NAME .. "_"
+  local function TransformEventName(event, isAddonEvent)
+    if isAddonEvent then
+      event = addonEventSalt .. event
+    end
+    return event
+  end
+  local registrations    = Addon.IndexedQueue()
+  local suspended        = {}
+  local onEventCallbacks = setmetatable({}, {__index = function(self, k)
+    rawset(self, k, Addon.IndexedQueue())
+    return rawget(self, k)
+  end})
+  
+  local function RunCallbacks(IsAddOnLoaded, event, ...)
     local t = onEventCallbacks[event]
-    Addon:Assertf(t, "Event %s is registered, but no callbacks were found", event)
+    if Addon:IsGlobalDBLoaded() and Addon:GetGlobalOption("debugOutput", IsAddOnLoaded and "onAddonEvent" or "onEvent") then
+      local args = {...}
+      local nArgs = select("#", ...)
+      if t:GetCount() > 0 then
+        Addon:Debugf("Running %d |4callback:callbacks; for event with %d args: %s", t:GetCount(), nArgs+2, Addon:Concat(", ", Addon, event, ...))
+      else
+        Addon:Debugf("Fired empty event with %d args: %s", nArgs+2, Addon:Concat(", ", Addon, event, ...))
+      end
+    end
     for i, func in t:iter() do
       Call(func, Addon, event, ...)
     end
-  end
-  
-  function Addon:RegisterEventCallback(...)
-    local events = {...}
-    local callback = tblRemove(events, #events)
-    assert(#events > 0 and type(callback) == "function", "Expected events and function")
-    
-    local registration = {}
-    local id = nextRegistrationID
-    nextRegistrationID = nextRegistrationID + 1
-    registrations[id] = registration
-    
-    func = function(...) if callback(...) then self:UnregisterEventCallback(id) end end
-    
-    for _, event in ipairs(events) do
-      local callbacks = onEventCallbacks[event] or Addon.IndexedQueue()
-      local index = callbacks:Add(func)
-      if callbacks:GetCount() == 1 then
-        onEventCallbacks[event] = callbacks
-        self:RegisterEvent(event, OnEvent)
-      end
-      registration[#registration+1] = {event, index}
+    if t:GetCount() == 0 then
+      onEventCallbacks[event] = nil
     end
-    return id
-  end
-  function Addon:RegisterOneTimeEventCallback(...)
-    local args = {...}
-    local nArgs = select("#", ...)
-    local callback = args[#args]
-    args[#args] = function(...) callback(...) return true end
-    
-    return self:RegisterEventCallback(unpack(args, 1, nArgs))
   end
   
-  function Addon:UnregisterEventCallback(id)
+  local function OnEvent(event, ...)
+    if suspended[event] then return end
+    RunCallbacks(false, event, ...)
+  end
+  local function OnAddonEvent(event, ...)
+    event = TransformEventName(event, true)
+    if suspended[event] then return end
+    RunCallbacks(true, event, ...)
+  end
+  
+  local function UnregisterEventCallback(isAddonEvent, id)
     local registration = registrations[id]
-    for _, eventPath in ipairs(registration) do
-      local event, index = unpack(eventPath)
-      local callbacks = onEventCallbacks[event] or Addon.IndexedQueue()
-      self:Assertf(callbacks:Remove(index), "Attempted to unregister callback %s from event %s, but it was not found", index, event)
+    for event, index in pairs(registration) do
+      local callbacks = onEventCallbacks[event]
+      Addon:Assertf(callbacks:Remove(index), "Attempted to unregister callback %s from event %s, but it was not found", index, event)
       if callbacks:GetCount() == 0 then
         onEventCallbacks[event] = nil
-        self:UnregisterEvent(event)
+        if not isAddonEvent then
+          Addon:UnregisterEvent(event)
+        end
       end
     end
     registrations[id] = nil
   end
   
-  
-  do
-    local events = {
-      Initialize       = Addon.IndexedQueue(),
-      Enable           = Addon.IndexedQueue(),
-      OptionsOpenPre   = Addon.IndexedQueue(),
-      OptionsOpenPost  = Addon.IndexedQueue(),
-      -- OptionsClosePre  = Addon.IndexedQueue(),
-      OptionsClosePost = Addon.IndexedQueue(),
-    }
+  local function RegisterEventCallback(isAddonEvent, ...)
+    local events = {...}
+    local callback = tblRemove(events, #events)
+    assert(#events > 0 and type(callback) == "function", "Expected events and function")
     
-    for event, callbacks in pairs(events) do
-      Addon["Run" .. event .. "Callbacks"] = function(self)
-        for i, func in callbacks:iter() do
-          Call(func, Addon)
-        end
+    local registration = {}
+    local id = registrations:Add(registration)
+    
+    func = function(...) if callback(...) then UnregisterEventCallback(isAddonEvent, id) end end
+    
+    for _, event in ipairs(events) do
+      event = TransformEventName(event, isAddonEvent)
+      local callbacks = onEventCallbacks[event]
+      local index = callbacks:Add(func)
+      if not isAddonEvent and callbacks:GetCount() == 1 then
+        Addon:RegisterEvent(event, OnEvent)
       end
-      Addon["Register" .. event .. "Callback"] = function(self, func)
-        return callbacks:Add(func)
+      registration[event] = index
+    end
+    return id
+  end
+  local function RegisterOneTimeEventCallback(isAddonEvent, ...)
+    local args = {...}
+    local nArgs = select("#", ...)
+    local callback = args[#args]
+    args[#args] = function(...) callback(...) return true end
+    
+    return RegisterEventCallback(isAddonEvent, unpack(args, 1, nArgs))
+  end
+  
+  local function SuspendEventWhile(isAddonEvent, ...)
+    local events = {...}
+    local callback = tblRemove(events, #events)
+    assert(#events > 0 and type(callback) == "function", "Expected events and function")
+    
+    local mySuspensions = {}
+    for _, event in ipairs(events) do
+      event = TransformEventName(event, isAddonEvent)
+      if not suspended[event] then
+        suspended[event]     = true
+        mySuspensions[event] = true
       end
-      Addon["Unregister" .. event .. "Callbacks"] = function(self)
-        self:Assert(callbacks:GetCount() > 0, "Attempted to unregister " .. event .. " callbacks, but none were found")
-        callbacks:Wipe()
-      end
-      Addon["Unregister" .. event .. "Callback"] = function(self, id)
-        self:Assertf(callbacks:Remove(id), "Attempted to unregister " .. event .. " callback %s, but it was not found", id)
-      end
+    end
+    
+    Addon:xpcall(function() callback(Addon) end)
+    
+    for event in pairs(mySuspensions) do
+      suspended[event] = nil
     end
   end
   
   
-  Addon:RegisterOptionsOpenPreCallback(function()
-    Addon:DebugIfOutput("optionsOpenedPre", "Options opened (Pre)")
-  end)
-  Addon:RegisterOptionsOpenPostCallback(function()
-    Addon:DebugIfOutput("optionsOpenedPost", "Options opened (Post)")
-  end)
-  Addon:RegisterOptionsClosePostCallback(function()
-    Addon:DebugIfOutput("optionsClosedPost", "Options closed (Post)")
-  end)
+  
+  function Addon:RegisterEventCallback(...)
+    return RegisterEventCallback(false, ...)
+  end
+  function Addon:RegisterOneTimeEventCallback(...)
+    return RegisterOneTimeEventCallback(false, ...)
+  end
+  function Addon:UnregisterEventCallback(id)
+    return UnregisterEventCallback(false, id)
+  end
+  function Addon:FireEvent(event, ...)
+    OnEvent(event, ...)
+  end
+  function Addon:SuspendEventWhile(...)
+    return SuspendEventWhile(false, ...)
+  end
+  
+  
+  function Addon:RegisterAddonEventCallback(...)
+    return RegisterEventCallback(true, ...)
+  end
+  function Addon:RegisterOneTimeAddonEventCallback(...)
+    return RegisterOneTimeEventCallback(true, ...)
+  end
+  function Addon:UnregisterAddonEventCallback(id)
+    return UnregisterEventCallback(true, id)
+  end
+  function Addon:FireAddonEvent(event, ...)
+    OnAddonEvent(event, ...)
+  end
+  function Addon:SuspendAddonEventWhile(...)
+    return SuspendEventWhile(true, ...)
+  end
+  
+  
   
   
   function Addon:RegisterCVarCallback(cvar, func)
@@ -1601,6 +1463,207 @@ end
 
 
 
+--  ██████╗  █████╗ ████████╗ █████╗ ██████╗  █████╗ ███████╗███████╗
+--  ██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔════╝
+--  ██║  ██║███████║   ██║   ███████║██████╔╝███████║███████╗█████╗  
+--  ██║  ██║██╔══██║   ██║   ██╔══██║██╔══██╗██╔══██║╚════██║██╔══╝  
+--  ██████╔╝██║  ██║   ██║   ██║  ██║██████╔╝██║  ██║███████║███████╗
+--  ╚═════╝ ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝
+
+do
+  local dbTables = {
+    {"dbDefault", "Default", true},
+    {"db", ""},
+  }
+  local dbTypes = {
+    {"global", "Global"},
+    {"profile", ""},
+  }
+  local initialized = {}
+  
+  local defaultKey, defaultName
+  
+  for _, dbType in ipairs(dbTables) do
+    local dbKey, dbName, isDefault = unpack(dbType, 1, 3)
+    if isDefault then
+      defaultKey  = dbKey
+      defaultName = dbName
+    end
+    
+    for _, dbSection in ipairs(dbTypes) do
+      local typeKey, typeName = unpack(dbSection, 1, 2)
+      
+      
+      local GetDB      = format("Get%s%sDB",      dbName, typeName)
+      local IsDBLoaded = format("Is%s%sDBLoaded", dbName, typeName)
+      
+      Addon[GetDB] = function(self)
+        return self[dbKey]
+      end
+      Addon[IsDBLoaded] = function(self)
+        return Addon[GetDB](self) ~= nil and initialized[typeKey]
+      end
+      
+      
+      local GetOption             = format("Get%s%sOption",      dbName,      typeName)
+      local GetOptionQuiet        = format("Get%s%sOptionQuiet", dbName,      typeName)
+      local GetDefaultOption      = format("Get%s%sOption",      defaultName, typeName)
+      local GetDefaultOptionQuiet = format("Get%s%sOptionQuiet", defaultName, typeName)
+      
+      local function Get(self, quiet, ...)
+        assert(Addon[IsDBLoaded](self), format("Attempted to access database before initialization: %s", Addon:Concat(" > ", dbKey, typeKey, ...)))
+        local val = self[dbKey][typeKey]
+        for _, key in ipairs{...} do
+          assert(type(val) == "table", format("Bad database access: %s", Addon:Concat(" > ", dbKey, typeKey, ...)))
+          val = val[key]
+        end
+        
+        if not quiet then
+          if type(val) == "table" then
+            Addon:Warnf("Database request returned a table: %s", Addon:Concat(" > ", dbKey, typeKey, ...))
+          end
+          if val == nil then
+            Addon:Warnf("Database request found empty value: %s", Addon:Concat(" > ", dbKey, typeKey, ...))
+          end
+        end
+        
+        return val
+      end
+      
+      Addon[GetOption] = function(self, ...)
+        return Get(self, false, ...)
+      end
+      Addon[GetOptionQuiet] = function(self, ...)
+        return Get(self, true, ...)
+      end
+      
+      
+      if not isDefault then
+        local SetOption               = format("Set%s%sOption",               dbName, typeName)
+        local SetOptionQuiet          = format("Set%s%sOptionQuiet",          dbName, typeName)
+        local SetOptionConfig         = format("Set%s%sOptionConfig",         dbName, typeName)
+        local SetOptionConfigQuiet    = format("Set%s%sOptionConfigQuiet",    dbName, typeName)
+        local ToggleOption            = format("Toggle%s%sOption",            dbName, typeName)
+        local ToggleOptionQuiet       = format("Toggle%s%sOptionQuiet",       dbName, typeName)
+        local ToggleOptionConfig      = format("Toggle%s%sOptionConfig",      dbName, typeName)
+        local ToggleOptionConfigQuiet = format("Toggle%s%sOptionConfigQuiet", dbName, typeName)
+        local ResetOption             = format("Reset%s%sOption",             dbName, typeName)
+        local ResetOptionQuiet        = format("Reset%s%sOptionQuiet",        dbName, typeName)
+        local ResetOptionConfig       = format("Reset%s%sOptionConfig",       dbName, typeName)
+        local ResetOptionConfigQuiet  = format("Reset%s%sOptionConfigQuiet",  dbName, typeName)
+        
+        local function Set(self, val, ...)
+          assert(Addon[IsDBLoaded](self), format("Attempted to access database before initialization: %s = %s", Addon:Concat(" > ", dbKey, typeKey, ...), tostring(val)))
+          local keys = {...}
+          local nKeys = select("#", ...)
+          local lastKey = tblRemove(keys, nKeys)
+          nKeys = nKeys - 1
+          Addon:Assertf(lastKey ~= nil, "Bad database access: %s = %s", Addon:Concat(" > ", dbKey, typeKey, ...), tostring(val))
+          local tbl = self[dbKey][typeKey]
+          for i = 1, nKeys do
+            local key = keys[i]
+            Addon:Assertf(key ~= nil and type(tbl[key]) == "table", "Bad database access: %s = %s", Addon:Concat(" > ", dbKey, typeKey, ...), tostring(val))
+            tbl = tbl[key]
+          end
+          local lastVal = tbl[lastKey]
+          if type(lastVal) == "table" then
+            if type(val) ~= "table" and val ~= nil then
+              Addon:Warnf("Database access overwriting a table: %s", Addon:Concat(" > ", dbKey, typeKey, ...))
+            end
+          end
+          tbl[lastKey] = val
+          Addon:DebugfIfOutput("optionSet", "Setting %s = %s", Addon:Concat(" > ", ...), tostring(val))
+          Addon:FireAddonEvent("OPTION_SET", val, dbKey, typeKey, ...)
+          return Addon
+        end
+        
+        Addon[SetOption] = function(self, val, ...)
+          return Set(self, val, ...)
+        end
+        
+        Addon[ToggleOption] = function(self, ...)
+          return self[SetOption](self, not self[GetOption](self, ...), ...)
+        end
+        
+        Addon[ResetOption] = function(self, ...)
+          return self[SetOption](self, Addon.Copy(self, self[GetDefaultOption](self, ...)), ...)
+        end
+        Addon[ResetOptionQuiet] = function(self, ...)
+          return self[SetOption](self, Addon.Copy(self, self[GetDefaultOptionQuiet](self, ...)), ...)
+        end
+      end
+    end
+  end
+  
+  
+  local function GetOrderedUpgrades(upgrades)
+    local versions = {}
+    for version, func in pairs(upgrades) do
+      versions[#versions+1] = version
+    end
+    
+    tblSort(versions, function(a, b) return Addon.SemVer(a) < Addon.SemVer(b) end)
+    
+    local i = 0
+    return function()
+      i = i + 1
+      local version = versions[i]
+      if version then
+        return version, upgrades[version]
+      end
+    end
+  end
+  
+  local function InitDB(dbInitFuncs, configType)
+    local init = dbInitFuncs[configType]
+    if not init then return end
+    
+    initialized[configType] = true
+    
+    local db = Addon:GetDB()[configType]
+    local oldVersion = db.version
+    local currentVersion = tostring(Addon.version)
+    
+    if not oldVersion then
+      if init.FirstRun then
+        Addon:Debugf("Performing first run for %s db", tostring(configType))
+        
+        Addon:pcall(init.FirstRun, function(err)
+          Addon:Errorf("FirstRun failed for %s db\n%s", tostring(configType))
+        end)
+      end
+    elseif oldVersion ~= currentVersion then
+      for version, Upgrade in GetOrderedUpgrades(init.upgrades) do
+        if Addon.SemVer(oldVersion) < Addon.SemVer(version) then
+          Addon:Debugf("Updating %s db from %s to %s", tostring(configType), tostring(oldVersion), version)
+          Addon:pcall(Upgrade, function(err)
+            Addon:Errorf("Data upgrade from %s to %s failed for %s db\n%s", tostring(oldVersion), tostring(version), tostring(configType), tostring(err))
+          end)
+        end
+      end
+    end
+    
+    if init.AlwaysRun then
+      Addon:pcall(init.AlwaysRun, function(err)
+        Addon:Errorf("AlwaysRun failed for %s db\n%s", tostring(configType), err)
+      end)
+    end
+    
+    db.version = currentVersion
+  end
+  
+  function Addon:InitDB(dbInitFuncs)
+    for _, dbSection in ipairs(dbTypes) do
+      InitDB(dbInitFuncs, dbSection[1])
+    end
+  end
+end
+
+
+
+
+
+
 --  ██████╗ ██╗      █████╗ ██╗   ██╗███████╗██████╗     ██████╗  █████╗ ████████╗ █████╗ 
 --  ██╔══██╗██║     ██╔══██╗╚██╗ ██╔╝██╔════╝██╔══██╗    ██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗
 --  ██████╔╝██║     ███████║ ╚████╔╝ █████╗  ██████╔╝    ██║  ██║███████║   ██║   ███████║
@@ -1633,7 +1696,7 @@ do
   
   
   Addon.MY_SEX = UnitSex"player" - 2
-  Addon:RegisterEnableCallback(function(self)
+  Addon:RegisterAddonEventCallback("ENABLE", function(self)
     self.MY_SEX = C_PlayerInfo.GetSex(PlayerLocation:CreateFromUnit"player")
     do
       for name, id in pairs(Enum.UnitSex) do
@@ -1675,11 +1738,11 @@ do
     local order        = defaultOrder
     
     local dbType = ""
-    local GetFunction      = function(keys) local funcName = format("Get%sOption",         dbType) return function(info)          Addon:HideConfirmPopup() return Addon[funcName](Addon, unpack(keys))                                          end end
-    local SetFunction      = function(keys) local funcName = format("Set%sOptionConfig",   dbType) return function(info, val)                                     Addon[funcName](Addon, val, unpack(keys))                                     end end
-    local ResetFunction    = function(keys) local funcName = format("Reset%sOptionConfig", dbType) return function(info, val)                                     Addon[funcName](Addon, unpack(keys))                                          end end
-    local GetColorFunction = function(keys) local funcName = format("Get%sOption",         dbType) return function(info)          Addon:HideConfirmPopup() return Addon:ConvertColorToBlizzard(Addon[funcName](Addon, unpack(keys)))            end end
-    local SetColorFunction = function(keys) local funcName = format("Set%sOption",         dbType) return function(info, r, g, b)                                 Addon[funcName](Addon, Addon:ConvertColorFromBlizzard(r, g, b), unpack(keys)) end end
+    local GetFunction      = function(keys) local funcName = format("Get%sOption",   dbType) return function(info)          Addon:HideConfirmPopup() return Addon[funcName](Addon, unpack(keys))                                                          end end
+    local SetFunction      = function(keys) local funcName = format("Set%sOption",   dbType) return function(info, val)                                     Addon[funcName](Addon, val, unpack(keys))                                                     end end
+    local ResetFunction    = function(keys) local funcName = format("Reset%sOption", dbType) return function(info, val)                                     Addon[funcName](Addon, unpack(keys))                                                          end end
+    local GetColorFunction = function(keys) local funcName = format("Get%sOption",   dbType) return function(info)          Addon:HideConfirmPopup() return Addon:ConvertColorToBlizzard(Addon[funcName](Addon, unpack(keys)))                            end end
+    local SetColorFunction = function(keys) local funcName = format("Set%sOption",   dbType) return function(info, r, g, b)                                 Addon[funcName](Addon, Addon:ConvertColorFromBlizzard(r, g, b), unpack(keys)):RefreshConfig() end end
     
     
     local MultiGetFunction = function(keys)
@@ -1749,7 +1812,7 @@ do
       end
     end
     function GUI:CreateNewline(opts)
-      return self:CreateDescription(opts, " ", fontSize or "small")
+      return self:CreateDescription(opts, "", fontSize or "small")
     end
     
     function GUI:CreateToggle(opts, keys, name, desc, disabled)
@@ -1859,14 +1922,28 @@ do
     end)
   end
   
-  function Addon:NotifyChange()
-    if not self:IsConfigOpen() then return end
-    self:HideConfirmPopup()
-    self:xpcall(function()
-      if self.AceConfigRegistry then
-        self.AceConfigRegistry:NotifyChange(ADDON_NAME)
-      end
-    end)
+  do
+    local refreshingAllowed = true
+    
+    function Addon:RefreshConfig(appName)
+      if not refreshingAllowed then return end
+      appName = appName or ADDON_NAME
+      
+      if not self:IsConfigOpen() then return end
+      self:HideConfirmPopup()
+      self:xpcall(function()
+        if self.AceConfigRegistry then
+          self.AceConfigRegistry:NotifyChange(appName)
+        end
+      end)
+      return self
+    end
+    
+    function Addon:SuspendConfigRefreshingWhile(func, ...)
+      refreshingAllowed = false
+      self:xpcall(func, nil, ...)
+      refreshingAllowed = true
+    end
   end
   
   
@@ -1901,7 +1978,7 @@ do
       local currentFrame = Addon:GetConfigWindow()
       if not currentFrame or self ~= currentFrame then
         if self[hookedKey] then
-          Addon:RunOptionsClosePostCallbacks()
+          Addon:FireAddonEvent"OPTIONS_CLOSED_POST"
           self[hookedKey] = false
         end
       end
@@ -1912,23 +1989,44 @@ do
   function Addon:GetConfigWindow()
     return self:CheckTable(self, "AceConfigDialog", "OpenFrames", ADDON_NAME, "frame")
   end
+  
   function Addon:IsConfigOpen(...)
-    return self:GetConfigWindow() and true or false
-  end
-  function Addon:OpenConfig(...)
-    self:RunOptionsOpenPreCallbacks()
-    self.AceConfigDialog:Open(ADDON_NAME)
-    if select("#", ...) > 0 then
-      self.AceConfigDialog:SelectGroup(ADDON_NAME, ...)
+    if not self:GetConfigWindow() then return false end
+    
+    local path = {...}
+    local nPath = select("#", ...)
+    while nPath > 0 do
+      local lastGroup = tblRemove(path, nPath)
+      nPath = nPath - 1
+      
+      if self:CheckTable(self.AceConfigDialog:GetStatusTable(ADDON_NAME, path), "groups", "selected") ~= lastGroup then
+        return false
+      end
     end
+    
+    return true
+  end
+  
+  function Addon:OpenConfig(...)
+    self:FireAddonEvent"OPTIONS_OPENED_PRE"
+    
+    local args = {...}
+    local nArgs = select("#", ...)
+    while nArgs > 0 do
+      local arg = tblRemove(args)
+      nArgs = nArgs - 1
+      self:StoreInTable(self.AceConfigDialog:GetStatusTable(ADDON_NAME, args), "groups", "selected", arg)
+    end
+    self.AceConfigDialog:Open(ADDON_NAME)
+    
     HookCloseConfig()
-    self:RunOptionsOpenPostCallbacks()
+    self:FireAddonEvent"OPTIONS_OPENED_POST"
   end
+  
   function Addon:CloseConfig()
-    -- self:RunOptionsClosePreCallbacks()
     self.AceConfigDialog:Close(ADDON_NAME)
-    -- self:RunOptionsClosePostCallbacks()
   end
+  
   function Addon:ToggleConfig(...)
     if self:IsConfigOpen(...) then
       self:CloseConfig()
@@ -1938,14 +2036,14 @@ do
   end
   
   function Addon:RefreshDebugOptions()
-    if self:CheckTable(self.AceConfigDialog:GetStatusTable(ADDON_NAME), "groups", "selected") == "Debug" then
-      self.AceConfigRegistry:NotifyChange(ADDON_NAME)
+    if Addon:IsConfigOpen"Debug" then
+      self:RefreshConfig()
     end
   end
   
   function Addon:ResetProfile(category)
     self:GetDB():ResetProfile()
-    self.AceConfigRegistry:NotifyChange(category)
+    self:RefreshConfig(category)
   end
   
   function Addon:CreateBlizzardOptionsCategory(options)
@@ -2058,110 +2156,190 @@ end
 --     ██║   ██║  ██║██║  ██║███████╗██║  ██║██████╔╝██║██║ ╚████║╚██████╔╝
 --     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝╚═╝  ╚═══╝ ╚═════╝ 
 do
-  local threads = {}
-  Addon.threads = threads
-  
-  local meta = {
-    __index = {
-      Start = function(self) self.frame:Show() end,
-      Stop  = function(self) self.frame:Hide() end,
-      Run   = function(self) self.runner(self) end,
-    },
-  }
-  
-  local function MakeNewThread(name)
-    local thread = setmetatable({}, meta)
+  do
+    local threads = {}
+    Addon.threads = threads
     
-    local data = {}
-    local runner = function(self)
-      if coroutine.status(thread.co) ~= "dead" then
-        local success, err = coroutine.resume(thread.co, Addon, data)
-        if not success then
-          -- thread.error = true
-          Addon:Throw(err)
+    local meta = {
+      __index = {
+        Start = function(self) self.frame:Show() end,
+        Stop  = function(self) self.frame:Hide() end,
+        Run   = function(self) self.runner(self) end,
+      },
+    }
+    
+    local function MakeNewThread(name)
+      local thread = setmetatable({}, meta)
+      
+      local data = {}
+      local runner = function(self)
+        if coroutine.status(thread.co) ~= "dead" then
+          thread.laps = thread.laps + 1
+          thread.startTime = GetTimePreciseSec()
+          local success, err = coroutine.resume(thread.co, Addon, data)
+          thread.time = thread.time + (GetTimePreciseSec() - thread.startTime)
+          thread.startTime = nil
+          if not success then
+            -- thread.error = true
+            Addon:Throw(err)
+          end
+        end
+        if coroutine.status(thread.co) == "dead" then
+          thread:Stop()
         end
       end
-      if coroutine.status(thread.co) == "dead" then
-        thread:Stop()
+      local frame = CreateFrame"Frame"
+      frame:SetScript("OnUpdate", runner)
+      
+      
+      thread.data   = data
+      thread.runner = runner
+      thread.frame  = frame
+      
+      threads[name] = thread
+      return thread
+    end
+    
+    
+    function Addon:StartNewThread(name, func, nextFrame)
+      self:Assertf(name,                     "Thread needs a name")
+      self:Assertf(type(func) == "function", "Thread needs a function")
+      
+      local thread
+      if threads[name] then
+        thread = self:StopThread(name)
+      else
+        thread = MakeNewThread(name)
+      end
+      
+      -- thread.error = nil
+      thread.co = coroutine.create(func)
+      thread:Start()
+      
+      thread.realTime = GetTimePreciseSec()
+      thread.time     = 0
+      thread.laps     = 0
+      
+      if not nextFrame then
+        thread:Run()
       end
     end
-    local frame = CreateFrame"Frame"
-    frame:SetScript("OnUpdate", runner)
     
-    
-    thread.data   = data
-    thread.runner = runner
-    thread.frame  = frame
-    
-    threads[name] = thread
-    return thread
-  end
-  
-  
-  function Addon:StartNewThread(name, func, nextFrame)
-    self:Assertf(name,                     "Thread needs a name")
-    self:Assertf(type(func) == "function", "Thread needs a function")
-    
-    local thread
-    if threads[name] then
-      thread = self:StopThread(name)
-    else
-      thread = MakeNewThread(name)
+    function Addon:DoesThreadExist(name)
+      return threads[name] and true or false
     end
     
-    -- thread.error = nil
-    thread.co = coroutine.create(func)
-    thread:Start()
+    function Addon:StartThread(name)
+      local thread = threads[name]
+      if thread and not self:IsThreadDead(name) then
+        thread:Start()
+      end
+      return thread
+    end
     
-    if not nextFrame then
-      thread:Run()
+    function Addon:StopThread(name)
+      local thread = threads[name]
+      if thread then
+        thread:Stop()
+      end
+      return thread
+    end
+    
+    function Addon:KillThread(name)
+      local thread = threads[name]
+      if thread then
+        thread:Stop()
+      end
+      threads[name] = nil
+    end
+    
+    function Addon:RunThread(name)
+      local thread = threads[name]
+      if thread then
+        thread:Run()
+      end
+      return thread
+    end
+    
+    function Addon:IsThreadDead(name)
+      local thread = threads[name]
+      return not thread or coroutine.status(thread.co) == "dead"
+    end
+    
+    function Addon:GetThreadData(name)
+      local thread = threads[name]
+      return thread and thread.data or nil
+    end
+    
+    function Addon:GetThreadRunTime(name)
+      local thread = threads[name]
+      if thread then
+        local totalTime = thread.time
+        if thread.startTime then
+          totalTime = totalTime + GetTimePreciseSec() - thread.startTime
+        end
+        return totalTime
+      end
+    end
+    
+    function Addon:GetThreadRealTime(name)
+      local thread = threads[name]
+      return thread and (GetTimePreciseSec() - thread.realTime) or nil
+    end
+    
+    function Addon:GetThreadLaps(name)
+      local thread = threads[name]
+      return thread and thread.laps or nil
     end
   end
   
-  function Addon:DoesThreadExist(name)
-    return threads[name] and true or false
-  end
-  
-  function Addon:StartThread(name)
-    local thread = threads[name]
-    if thread and not self:IsThreadDead(name) then
-      thread:Start()
+  do
+    local function Rollover(self)
+      self[3] = self[3] + self[1]
+      self[1] = 0
+      self[4] = self[4] + 1
     end
-    return thread
-  end
+    
+    local meta = {
+      __index = {
+        Tick = function(self, n, callback, ...)
+          self[1] = self[1] + (n or 1)
+          if self[1] >= self[2] then
+            Rollover(self)
+            
+            callback = callback or self[5]
+            if callback then
+              Addon:xpcall(callback)
+            end
+            return true, coroutine.yield(...)
+          end
+        end,
+        Trigger = function(self, ...)
+          Rollover(self)
+          return coroutine.yield(...)
+        end,
+        GetSpeed = function(self)
+          return self[2]
+        end,
+        SetSpeed = function(self, v)
+          self[2] = v
+          return self
+        end,
+        GetSteps = function(self)
+          return self[1] + self[3]
+        end,
+        GetLaps = function(self)
+          return self[4]
+        end,
+        SetCallback = function(self, callback)
+          self[5] = callback
+        end,
+      },
+    }
   
-  function Addon:StopThread(name)
-    local thread = threads[name]
-    if thread then
-      thread:Stop()
+    function Addon:MakeThreadTicker(speed)
+      return setmetatable({0, speed, 0, 1}, meta)
     end
-    return thread
-  end
-  
-  function Addon:KillThread(name)
-    local thread = threads[name]
-    if thread then
-      thread:Stop()
-    end
-    threads[name] = nil
-  end
-  
-  function Addon:RunThread(name)
-    local thread = threads[name]
-    if thread then
-      thread:Run()
-    end
-    return thread
-  end
-  
-  function Addon:IsThreadDead(name)
-    local thread = threads[name]
-    return not thread or coroutine.status(thread.co) == "dead"
-  end
-  
-  function Addon:GetThreadData(name)
-    local thread = threads[name]
-    return thread and thread.data or nil
   end
 end
 
@@ -2199,7 +2377,7 @@ do
     if func then
       func(self, unpack(args))
     else
-      self:OpenConfig()
+      self:ToggleConfig()
     end
   end
   

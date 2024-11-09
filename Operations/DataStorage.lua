@@ -31,7 +31,7 @@ do
     __index = {
       min = 1,
       max = 100,
-      luckyItems = {},
+      -- luckyItems = {},
     },
     __lt = function(self, o)
       if self.datetime ~= o.datetime then
@@ -76,16 +76,38 @@ do
     end
     do
       local luckyItems = rawget(rollData, "luckyItems")
-      if luckyItems and #luckyItems == 0 then
+      if luckyItems and next(luckyItems) == nil then
         rawset(rollData, "luckyItems", nil)
       end
     end
-    rawset(rollData, "guid", nil)
+    rawset(rollData, "index", nil)
+    rawset(rollData, "guid",  nil)
     
     return AceSerializer:Serialize(VerifyRollData(rollData))
   end
   
   function Addon:DeserializeRollData(rollString, i, guid)
+    local rollData = select(2, AceSerializer:Deserialize(rollString))
+    setmetatable(rollData, meta)
+    
+    if i then
+      rawset(rollData, "index", i)
+    end
+    if guid then
+      rawset(rollData, "guid", guid)
+    end
+    
+    return VerifyRollData(rollData)
+  end
+  
+  function Addon:GetRollData(guid, i)
+    self:Assert(guid, "Invalid guid: %s", tostring(guid))
+    self:Assert(i, "Invalid index: %s", tostring(i))
+    local rolls = self:GetGlobalOptionQuiet("rolls", guid)
+    self:Assert(rolls, "Can't get rolls for guid: %s", tostring(guid))
+    local rollString = rolls[i]
+    self:Assert(rolls, "Roll %s doesn't exist for %s (%s)", i, self:GetColoredNameRealmFromGUID(guid), guid)
+    
     local rollData = select(2, AceSerializer:Deserialize(rollString))
     setmetatable(rollData, meta)
     
@@ -296,6 +318,29 @@ function Addon:CountRolls()
   return total
 end
 
+
+
+function Addon:GetEarliestRollAfter(datetime, guid)
+  self:Assert(guid, "guid is %s", tostring(guid))
+  local rolls = self:GetGlobalOptionQuiet("rolls", guid)
+  self:Assert(rolls, "rolls is %s", tostring(rolls))
+  self:Assert(not rolls:CanDefrag(), "rolls for %s (%s) are fragmented", self:GetColoredNameRealmFromGUID(guid), guid)
+  
+  local earliest
+  local bottom, top = 1, rolls:GetCount()
+  while bottom <= top do
+    local mid = mathFloor((top + bottom) / 2)
+    
+    local rollData = self:DeserializeRollData(rolls[mid], mid, guid)
+    if rollData.datetime < datetime then
+      bottom = mid+1
+    else
+      earliest = mid
+      top = mid-1
+    end
+  end
+  return earliest
+end
 
 
 

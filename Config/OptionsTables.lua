@@ -133,7 +133,7 @@ local function MakeStatsOptions(opts, categoryName)
     end
   end
   
-  
+  -- show roll buttons
   if not hasRolls then
     GUI:CreateDivider(opts, 3)
     
@@ -184,8 +184,6 @@ local function MakeStatsOptions(opts, categoryName)
       option.width = 1
       option.confirm = function() return self.L["/roll"] end
     end
-    
-    
   else
     -- roll results
     local threadData = self:GetThreadData"RollResults" or {}
@@ -303,7 +301,7 @@ local function MakeStatsOptions(opts, categoryName)
             end
             GUI:CreateNewline(opts)
             
-            GUI:CreateDescription(opts, format("%s %d %s", self.L["Total:"], totalRolls, self.L["|4Loot Roll:Loot Rolls;"]))
+            GUI:CreateDescription(opts, format("%s %s %s", self.L["Total:"], self:ToFormattedNumber(totalRolls), self.L["|4Loot Roll:Loot Rolls;"]))
           end
           
           GUI:CreateNewline(opts)
@@ -430,31 +428,53 @@ local function MakeStatsOptions(opts, categoryName)
             end
           end
         end
-        --[[
+        
+        -- inventory filters
         do
           local opts = GUI:CreateGroup(opts, "Inventory", self.L["Inventory"], nil, "tab")
           
           if #self.orderedLuckyItems > 1 then
-            
-            
-            -- local validFilter = false
-            -- for i in ipairs(QUALITY_NAMES) do
-            --   validFilter = validFilter or self:GetGlobalOptionQuiet("filters", "group", "item", "quality", i)
-            --   if validFilter then break end
-            -- end
-            
-            local color = validFilter and "" or "|cffff0000"
-            
-            GUI:CreateToggle(opts, {"filters", "character", "luckyItems", "enable"}, self.L["Require items"]).width = 0.8
-            GUI:CreateDropdown(opts, {"filters", "character", "luckyItems", "operator"}, "", desc, {any = self.L["any"], all = self.L["all"], none = self.L["none"]}, {"any", "all", "none"}).width = 0.4
-            GUI:CreateMultiDropdown(opts, {"filters", "character", "luckyItems", "items"}, color .. self.L["Items"], desc, self.luckyItemLinks, disabled).width = 1.5
-            
-            
+            GUI:CreateToggle(opts, {"filters", "character", "luckyItems", "enable"}, self.L["Required items:"]).width = 0.8
+            do
+              local disabled = not self:GetGlobalOption("filters", "character", "luckyItems", "enable")
+              
+              local validFilter = true
+              if not disabled then
+                local operator = self:GetGlobalOption("filters", "character", "luckyItems", "operator")
+                if operator == "any" or operator == "all" then
+                  validFilter = false
+                  for id, required in pairs(self:GetGlobalOptionQuiet("filters", "character", "luckyItems", "items")) do
+                    if required == true then
+                      validFilter = true
+                      break
+                    end
+                  end
+                elseif operator == "none" then
+                  validFilter = true
+                end
+              end
+              
+              local color = validFilter and "" or "|cffff0000"
+              
+              GUI:CreateDropdown(opts, {"filters", "character", "luckyItems", "operator"}, "", desc, {any = self.L["any"], all = self.L["all"], none = self.L["none"]}, {"any", "all", "none"}, disabled).width = 0.4
+              GUI:CreateMultiDropdown(opts, {"filters", "character", "luckyItems", "items"}, color .. self.L["Items"], desc, self.luckyItemNames, disabled).width = 2
+            end
           else
+            local itemID = self.orderedLuckyItems[1]
             
+            GUI:CreateToggle(opts, {"filters", "character", "luckyItems", "enable"}, format(self.L["Requires %s"], self.luckyItemNames[itemID])).width = 1.3
+            do
+              local disabled = not self:GetGlobalOption("filters", "character", "luckyItems", "enable")
+              
+              if self:GetGlobalOption("filters", "character", "luckyItems", "operator") == "all" then
+                GUI:CreateDropdown(opts, {"filters", "character", "luckyItems", "operator"}, "", desc, {all = self.L["Yes"], none = self.L["No"]}, {"all", "none"}, disabled).width = 0.4
+              else
+                GUI:CreateDropdown(opts, {"filters", "character", "luckyItems", "operator"}, "", desc, {any = self.L["Yes"], none = self.L["No"]}, {"any", "none"}, disabled).width = 0.4
+              end
+              
+            end
           end
         end
-        ]]
       end
       
       -- group loot filters
@@ -561,7 +581,7 @@ local function MakeStatsOptions(opts, categoryName)
       end
     
     
-      -- roll filters
+      -- manual filters
       do
         local opts = GUI:CreateGroup(opts, "/roll", self.L["/roll"], nil, "tab")
         

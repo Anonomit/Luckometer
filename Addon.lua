@@ -39,16 +39,44 @@ do
             
             newRolls[guid]:Add(self:SerializeRollData(rollData))
           end
-          self:SetGlobalOptionQuiet(newRolls, "rolls")
+          self:SetGlobalOption(newRolls, "rolls")
           
           
           -- reset filters setting
           self:ResetGlobalOptionQuiet"filters"
         end,
+        ["1.4.0"] = function()
+          -- track lucky items by key instead of as a list
+          local datetime = 1728532800 -- Thu Oct 10 2024 04:00:00 GMT+0000
+          for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+            self.IndexedQueue(rolls)
+            local first = self:GetEarliestRollAfter(datetime, guid)
+            if first then
+              self:Debugf("Upgrading lucky items format for %s (%s) starting at roll %d", self:GetColoredNameRealmFromGUID(guid), guid, first)
+              for i, rollString in rolls:iter(first) do
+                local rollData = self:DeserializeRollData(rollString, first, guid)
+                local luckyItems = rollData.luckyItems
+                if luckyItems then
+                  self:Debugf("Upgrading lucky items format for roll %d", i)
+                  rollData.luckyItems = self:MakeLookupTable(luckyItems)
+                  rolls[i] = self:SerializeRollData(rollData)
+                end
+              end
+            end
+          end
+        end,
       },
       AlwaysRun = function()
+        -- Create IndexedQueue objects from rolls table
         for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
           self.IndexedQueue(rolls)
+        end
+        
+        -- if only one lucky item exists in this game version, make sure it isn't disabled
+        if #self.orderedLuckyItems == 1 then
+          if not self:GetGlobalOption("filters", "character", "luckyItems", "items", self.orderedLuckyItems[1]) then
+            self:SetGlobalOption(true, "filters", "character", "luckyItems", "items", self.orderedLuckyItems[1])
+          end
         end
       end,
     },

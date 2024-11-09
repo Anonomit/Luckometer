@@ -576,6 +576,16 @@ do
       return id
     end
     
+    function IndexedQueue:Replace(id, v)
+      Addon:AssertfLevel(2, type(id) == "number", "Attempted to replace a non-number index: %s (%s)", tostring(id), type(id))
+      Addon:AssertfLevel(2, Addon:CheckTable(self, "actual", id) ~= nil, "Attempted to replace a non-existent index: %s", tostring(id))
+      Addon:AssertfLevel(2, v ~= nil, "Attempted to add a nil value")
+      
+      Addon:StoreInTable(self, "actual", id, v)
+      
+      return self
+    end
+    
     function IndexedQueue:Remove(id)
       Addon:AssertfLevel(2, type(id) == "number", "Attempted to remove a non-number index: %s (%s)", tostring(id), type(id))
       local v = rawget(Addon:CheckTable(self, "actual"), id)
@@ -695,11 +705,11 @@ do
       end
     end
     
-    function IndexedQueue:iter()
-      return IndexedQueue.next, self, nil
+    function IndexedQueue:iter(initial)
+      return IndexedQueue.next, self, initial and GetPrev(self, initial) or nil
     end
-    function IndexedQueue:riter()
-      return IndexedQueue.prev, self, nil
+    function IndexedQueue:riter(initial)
+      return IndexedQueue.prev, self, initial and GetNext(self, initial) or nil
     end
     
     function IndexedQueue:GetHead()
@@ -718,10 +728,12 @@ do
         end
       end,
       __newindex = function(self, k, v)
-        Addon:AssertfLevel(2, v == nil, "Attempted to insert an element by index: %s = %s", tostring(k), tostring(v))
-        Addon:AssertfLevel(2, type(k) == "number", "Attempted to remove an element with an invalid key: %s (%s)", tostring(k), type(k))
+        if v ~= nil then
+          return IndexedQueue.Replace(self, k, v)
+        else
+          return IndexedQueue.Remove(self, k)
+        end
         
-        return IndexedQueue.Remove(self, k)
       end,
     }
     
@@ -1540,17 +1552,9 @@ do
       
       if not isDefault then
         local SetOption               = format("Set%s%sOption",               dbName, typeName)
-        local SetOptionQuiet          = format("Set%s%sOptionQuiet",          dbName, typeName)
-        local SetOptionConfig         = format("Set%s%sOptionConfig",         dbName, typeName)
-        local SetOptionConfigQuiet    = format("Set%s%sOptionConfigQuiet",    dbName, typeName)
         local ToggleOption            = format("Toggle%s%sOption",            dbName, typeName)
-        local ToggleOptionQuiet       = format("Toggle%s%sOptionQuiet",       dbName, typeName)
-        local ToggleOptionConfig      = format("Toggle%s%sOptionConfig",      dbName, typeName)
-        local ToggleOptionConfigQuiet = format("Toggle%s%sOptionConfigQuiet", dbName, typeName)
         local ResetOption             = format("Reset%s%sOption",             dbName, typeName)
         local ResetOptionQuiet        = format("Reset%s%sOptionQuiet",        dbName, typeName)
-        local ResetOptionConfig       = format("Reset%s%sOptionConfig",       dbName, typeName)
-        local ResetOptionConfigQuiet  = format("Reset%s%sOptionConfigQuiet",  dbName, typeName)
         
         local function Set(self, val, ...)
           assert(Addon[IsDBLoaded](self), format("Attempted to access database before initialization: %s = %s", Addon:Concat(" > ", dbKey, typeKey, ...), tostring(val)))
@@ -1755,7 +1759,7 @@ do
     end
     
     local MultiSetFunction = function(keys)
-      local funcName = format("Set%sOptionConfig", dbType)
+      local funcName = format("Set%sOption", dbType)
       return function(info, key, val)
         local path = Addon:Copy(keys)
         path[#path+1] = key

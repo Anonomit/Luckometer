@@ -19,11 +19,11 @@ function Addon:MakeDefaultOptions()
         min    = 1,
         max    = Addon.MAX_LEVEL,
       },
-      -- luckyItems = {
-      --   enable   = true,
-      --   operator = "any",
-      --   items    = Addon.allLuckyItems,
-      -- },
+      luckyItems = {
+        enable   = false,
+        operator = "any",
+        items    = Addon:Copy(Addon.allLuckyItems),
+      },
     },
     group = {
       enable = true,

@@ -26,11 +26,11 @@ end
 do
   local allLuckyItems     = {}
   local orderedLuckyItems = {}
-  local luckyItemLinks    = {}
+  local luckyItemNames    = {}
   
   Addon.allLuckyItems     = allLuckyItems
   Addon.orderedLuckyItems = orderedLuckyItems
-  Addon.luckyItemLinks    = luckyItemLinks
+  Addon.luckyItemNames    = luckyItemNames
   
   for expansion, items in Addon:Ordered{
     [Addon.expansions.era] = {
@@ -69,13 +69,13 @@ do
     if expansion <= Addon.expansionLevel then
       for _, id in ipairs(items) do
         allLuckyItems[id] = true
-        orderedLuckyItems[#orderedLuckyItems+1] =id
+        orderedLuckyItems[#orderedLuckyItems+1] = id
         
         Addon.ItemCache(id):OnCache(function(item)
           local icon = format("|T%s:16|t", item:GetIcon())
           local quality = item:GetQuality()
           local name = ITEM_QUALITY_COLORS[quality].color:WrapTextInColorCode(item:GetName())
-          luckyItemLinks[id] = format("%s %s", icon, name)
+          luckyItemNames[id] = format("%s %s", icon, name)
         end)
       end
     end
@@ -92,7 +92,6 @@ do
     
     return luckyItems
   end
-  
 end
 
 

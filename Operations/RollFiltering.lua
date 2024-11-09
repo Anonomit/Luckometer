@@ -81,6 +81,40 @@ local filters = {
     local characterLevel = rollData.level
     return characterLevel >= Addon:GetGlobalOption("filters", "character", "level", "min") and characterLevel <= Addon:GetGlobalOption("filters", "character", "level", "max")
   end,
+  luckyItems = function(rollData)
+    if not GetOptionBool("character", "luckyItems", "enable") then return true end
+    
+    local luckyItems    = rollData.luckyItems
+    local operator      = Addon:GetGlobalOption("filters", "character", "luckyItems", "operator")
+    local requiredItems = Addon:GetGlobalOptionQuiet("filters", "character", "luckyItems", "items")
+    if operator == "any" then
+      if not luckyItems then return false end
+      for id, required in pairs(requiredItems) do
+        if required and luckyItems[id] then
+          return true
+        end
+      end
+      return false
+    elseif operator == "all" then
+      if not luckyItems then return false end
+      for id, required in pairs(requiredItems) do
+        if required and not luckyItems[id] then
+          return false
+        end
+      end
+      return true
+    elseif operator == "none" then
+      if not luckyItems then return true end
+      for id, required in pairs(requiredItems) do
+        if required and luckyItems[id] then
+          return false
+        end
+      end
+      return true
+    end
+    
+    self:Errorf("Invalid operator value: %s", tostring(operator))
+  end,
 }
 
 

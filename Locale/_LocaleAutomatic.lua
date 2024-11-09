@@ -118,9 +118,10 @@ L["Modifiers:"]  = MODIFIERS_COLON
 L["Yes"] = YES
 L["No"]  = NO
 
-L["never"] = function() return strLower(CALENDAR_REPEAT_NEVER) end
 L["any"]   = function() return strLower(SPELL_TARGET_TYPE1_DESC) end
 L["all"]   = function() return strLower(SPELL_TARGET_TYPE12_DESC) end
+L["never"] = function() return strLower(CALENDAR_REPEAT_NEVER) end
+L["none"]  = function() return strLower(NONE_CAPS) end
 
 L["SHIFT key"] = SHIFT_KEY
 L["CTRL key"]  = CTRL_KEY
@@ -185,28 +186,33 @@ L["Total:"]  = FROM_TOTAL
 L["Average"] = GMSURVEYRATING3
 L["Score:"]  = PROVING_GROUNDS_SCORE
 
-L["Stats"]        = PET_BATTLE_STATS_LABEL
-L["Filters"]      = FILTERS
-L["Filter %s"]    = function() return strGsub(DEFAULT_COMBATLOG_FILTER_NAME, "%%d", "%%s") end
-L["Character"]    = CHARACTER
-L["Select"]       = LFG_LIST_SELECT
-L["Alliance"]     = FACTION_ALLIANCE
-L["Horde"]        = FACTION_HORDE
-L["Neutral"]      = FACTION_STANDING_LABEL4
-L["Male"]         = MALE
-L["Female"]       = FEMALE
-L["None"]         = NPC_NAMES_DROPDOWN_NONE
-L["Me"]           = COMBATLOG_FILTER_STRING_ME
-L["Any level"]    = GUILD_RECRUITMENT_ANYLEVEL
-L["Level"]        = LEVEL
-L["Level Range"]  = LEVEL_RANGE
-L["Level Range:"] = BATTLEFIELD_LEVEL
-L["%d-%d"]        = PVP_RECORD_DESCRIPTION
-L["Level %d"]     = UNIT_LEVEL_TEMPLATE
-L["-->"]          = function() return strMatch(SELECT_CATEGORY, "^%S+") end
-L["Max Level"]    = GUILD_RECRUITMENT_MAXLEVEL
-L["Level %d-%d"]  = MEETINGSTONE_LEVEL
-L["Obliterate"]   = OBLITERATE_BUTTON
+L["Stats"]           = PET_BATTLE_STATS_LABEL
+L["Filters"]         = FILTERS
+L["Filter %s"]       = function() return strGsub(DEFAULT_COMBATLOG_FILTER_NAME, "%%d", "%%s") end
+L["Character"]       = CHARACTER
+L["Select"]          = LFG_LIST_SELECT
+L["Alliance"]        = FACTION_ALLIANCE
+L["Horde"]           = FACTION_HORDE
+L["Neutral"]         = FACTION_STANDING_LABEL4
+L["Male"]            = MALE
+L["Female"]          = FEMALE
+L["None"]            = NPC_NAMES_DROPDOWN_NONE
+L["Me"]              = COMBATLOG_FILTER_STRING_ME
+L["Any level"]       = GUILD_RECRUITMENT_ANYLEVEL
+L["Level"]           = LEVEL
+L["Level Range"]     = LEVEL_RANGE
+L["Level Range:"]    = BATTLEFIELD_LEVEL
+L["%d-%d"]           = PVP_RECORD_DESCRIPTION
+L["Level %d"]        = UNIT_LEVEL_TEMPLATE
+L["-->"]             = function() return strMatch(SELECT_CATEGORY, "^%S+") end
+L["Max Level"]       = GUILD_RECRUITMENT_MAXLEVEL
+L["Level %d-%d"]     = MEETINGSTONE_LEVEL
+L["Inventory"]       = INVENTORY_TOOLTIP
+L["Required items:"] = TURN_IN_ITEMS
+L["Requires %s"]     = LOCKED_WITH_ITEM
+L["Yes"]             = YES
+L["No"]              = NO
+
 
 L["Group Loot"]   = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
 L["/roll"]        = SLASH_RANDOM7
@@ -232,8 +238,9 @@ L["Research Complete"]       = GARRISON_TALENT_RESEARCH_COMPLETE
 
 
 L["AddOn Memory"] = function() return TrimSpaces(strMatch(TOTAL_MEM_KB_ABBR, "[^:]+")) end
-L["%s (Full)"] = BATTLEFIELD_FULL
-L["Cleanup"]   = BAG_FILTER_CLEANUP
+L["%s (Full)"   ] = BATTLEFIELD_FULL
+L["Obliterate"]   = OBLITERATE_BUTTON
+L["Cleanup"]      = BAG_FILTER_CLEANUP
 
 L["N/A"] = NOT_APPLICABLE
 

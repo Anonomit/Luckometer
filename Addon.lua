@@ -46,6 +46,12 @@ do
           self:ResetGlobalOptionQuiet"filters"
         end,
         ["1.4.0"] = function()
+          -- remove profile storage
+          local sv = self:GetDB().sv
+          if sv then
+            sv.profiles = nil
+          end
+          
           -- track lucky items by key instead of as a list
           local datetime = 1728532800 -- Thu Oct 10 2024 04:00:00 GMT+0000
           for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do

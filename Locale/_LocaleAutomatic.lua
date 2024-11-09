@@ -210,8 +210,6 @@ L["Level %d-%d"]     = MEETINGSTONE_LEVEL
 L["Inventory"]       = INVENTORY_TOOLTIP
 L["Required items:"] = TURN_IN_ITEMS
 L["Requires %s"]     = LOCKED_WITH_ITEM
-L["Yes"]             = YES
-L["No"]              = NO
 
 
 L["Group Loot"]   = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end

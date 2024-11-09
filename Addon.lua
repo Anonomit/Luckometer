@@ -71,6 +71,18 @@ do
             end
           end
         end,
+        ["1.4.1"] = function()
+          -- Delete any characters that have never rolled
+          local toDelete = {}
+          for guid, charData in pairs(Addon:GetGlobalOptionQuiet"characters") do
+            if not self:GetGlobalOptionQuiet("rolls", guid) then
+              toDelete[#toDelete+1] = guid
+            end
+          end
+          for _, guid in ipairs(toDelete) do
+            self:SetGlobalOption(nil, "characters", guid)
+          end
+        end,
       },
       AlwaysRun = function()
         -- Create IndexedQueue objects from rolls table

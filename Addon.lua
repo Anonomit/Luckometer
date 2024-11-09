@@ -78,6 +78,11 @@ do
           self.IndexedQueue(rolls)
         end
         
+        -- Update character metadata if the character is already in db
+        if self:GetGlobalOptionQuiet("characters", self.MY_GUID) then
+          self:StoreCharacter()
+        end
+        
         -- if only one lucky item exists in this game version, make sure it isn't disabled
         if #self.orderedLuckyItems == 1 then
           if not self:GetGlobalOption("filters", "character", "luckyItems", "items", self.orderedLuckyItems[1]) then

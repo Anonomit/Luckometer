@@ -150,7 +150,7 @@ end
 
 
 
-local function StoreCharacter()
+function Addon:StoreCharacter()
   local self = Addon
   
   local realmID   = GetRealmID()
@@ -215,7 +215,7 @@ function Addon:StoreRoll(rollData)
     return
   end
   
-  StoreCharacter()
+  self:StoreCharacter()
   
   rollData.level      = self.MY_LEVEL
   rollData.luckyItems = self:GetOwnedLuckyItems()

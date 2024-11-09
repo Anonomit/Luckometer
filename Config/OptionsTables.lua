@@ -194,26 +194,28 @@ local function MakeStatsOptions(opts, categoryName)
       local results = threadData.results
       
       local count    = "???"
-      local avgRoll  = "???"
-      local avgScore = "???"
+      local avg      = "???"
+      local luck     = "???"
       if results then
         local filtered = results.count or 0
         local total    = self:CountRolls()
         local percent  = self:Round(filtered / total * 100, 0.01)
         count = format("%s / %s (%s%%)", self:ToFormattedNumber(filtered, 0), self:ToFormattedNumber(total, 0), self:ToFormattedNumber(percent))
         if filtered > 0 then
-          avgRoll  = self:ToFormattedNumber(results.avgRoll,      1) .. " (1-100)"
-          avgScore = self:ToFormattedNumber(results.avgScore*100, 1) .. "%"
+          local avgRoll  = self:ToFormattedNumber(results.avgRoll,      1) .. " (1-100)"
+          local avgScore = self:ToFormattedNumber(results.avgScore*100, 1) .. "%"
+          
+          avg  = format("%s (%s)", avgRoll, avgScore)
+          luck = self:ToFormattedNumber(results.luck*100,     1) .. "%"
         else
-          avgRoll  = self.L["N/A"]
-          avgScore = self.L["N/A"]
+          avg      = self.L["N/A"]
+          luck     = self.L["N/A"]
         end
       end
       
-      
-      GUI:CreateDescription(opts, format("%s: %s", self.L["Loot Rolls"], count))
-      GUI:CreateDescription(opts, format("%s: %s", self.L["Average"],    avgRoll))
-      GUI:CreateDescription(opts, format("%s %s",  self.L["Score:"],     avgScore))
+      GUI:CreateDescription(opts, format("%s: %s",      self.L["Loot Rolls"], count))
+      GUI:CreateDescription(opts, format("%s: %s", self.L["Average"],    avg))
+      GUI:CreateDescription(opts, format("%s %s",       self.L["Score:"],     luck))
       
       do
         local processing = not self:IsThreadDead"RollResults" and threadData.refreshWhenDone

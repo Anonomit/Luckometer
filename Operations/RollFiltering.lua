@@ -291,6 +291,7 @@ do
       totalScore = totalScore,
       avgRoll    = avgRoll,
       avgScore   = avgScore,
+      luck       = self:CalculateLuck(avgScore, #filteredRolls)
     }
     
     if self:GetGlobalOption("debugOutput", "rollsFilterCompleted") then

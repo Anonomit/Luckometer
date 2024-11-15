@@ -135,19 +135,6 @@ end
 
 
 
-function Addon:GetFriendlyDate(datetime)
-  local d = C_DateAndTime.GetCalendarTimeFromEpoch(datetime*1e6)
-  
-  local weekDay = CALENDAR_WEEKDAY_NAMES[d.weekday]
-  local month   = CALENDAR_FULLDATE_MONTH_NAMES[d.month]
-  
-  -- local text = format("%02d:%02d, %s, %d %s %d", d.hour, d.minute, weekDay, d.monthDay, month, d.year)
-  local text = format("%d-%02d-%02d %02d:%02d", d.year, d.month, d.monthDay, d.hour, d.minute)
-  
-  return text
-end
-
-
 
 
 function Addon:StoreCharacter()

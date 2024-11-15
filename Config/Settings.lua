@@ -126,6 +126,11 @@ function Addon:MakeDefaultOptions()
           startImmediately = true,
         },
         
+        display = {
+          use24hTime  = true,
+          dateFormat = "%5$s %4$s %3$d %1$d",
+        },
+        
         -- Debug options
         debug = false,
         

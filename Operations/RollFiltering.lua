@@ -206,13 +206,11 @@ do
     local itemsToCache = {}
     local itemsInCache = {}
     
-    local store = deserializedRolls -- remove this line and uncomment the others when rolls need to be filtered in order
-    
     -- gather rolls from db
     for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
-      if self:GetGlobalOption("filters", "character", "guid", guid) then--[[
+      if self:GetGlobalOption("filters", "character", "guid", guid) then
         local store = {}
-        deserializedRolls[#deserializedRolls+1] = store]]
+        deserializedRolls[#deserializedRolls+1] = store
         
         for i, rollData in self:IterRollData(rolls, guid) do
           store[#store+1] = rollData
@@ -229,21 +227,21 @@ do
           end
           
           ticker:Tick(1, function() self:DebugIfOutput("rollFilterProgress", "Roll filtering is collecting rolls") end)
-        end--[[
+        end
         if #store == 0 then
           deserializedRolls[#deserializedRolls] = nil
         else
           deserializedRolls[#deserializedRolls] = {ipairs(store)}
-        end]]
+        end
       end
     end
     
-    --[[
+    
     -- sort deserialized rolls
     ticker:SetCallback(function() self:DebugIfOutput("rollFilterProgress", "Roll filtering is sorting rolls") end)
     local deserializedRolls = self:MergeSorted(deserializedRolls, nil, nil, ticker)
     ticker:SetCallback()
-    ]]
+    
     
     -- cache missing items
     if #itemsToCache > 0 then
@@ -286,6 +284,7 @@ do
     end
     
     data.results = {
+      rolls      = filteredRolls,
       count      = #filteredRolls,
       totalRoll  = totalRoll,
       totalScore = totalScore,

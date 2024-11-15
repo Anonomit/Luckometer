@@ -2497,7 +2497,7 @@ do
       local result = {}
       
       for i = #left, 0, -3 do
-        result[mathFloor(i/3)+1] = strSub(left, mathMax(i-2, 0), i)
+        result[mathFloor(i/3)+1] = strSub(left, mathMax(0, i-2), i)
       end
       if result[1] == "" then
         tblRemove(result, 1)
@@ -2574,7 +2574,7 @@ do
     assert(not max or type(max) == "number", "Can't clamp. max is " .. type(max))
     assert(not min or not max or (min <= max), format("Can't clamp. min (%d) > max (%d)", min, max))
     if min then
-      num = mathMax(num, min)
+      num = mathMax(min, num)
     end
     if max then
       num = mathMin(num, max)
@@ -2606,6 +2606,47 @@ do
       end
     end
     return text
+  end
+  
+  do
+    local chainGsubPattern = {
+      {"%%%d%$", "%%"},               -- koKR ITEM_RESIST_SINGLE: "%3$s 저항력 %1$c%2$d" -> "%s 저항력 %c%d"
+      {"|3%-%d+%((.+)%)", "%1"},      -- ruRU ITEM_RESIST_SINGLE: "%c%d к сопротивлению |3-7(%s)" -> %c%d к сопротивлению %s
+      {"[%[%]().+-]", "%%%0"},        -- cover special characters with escape codes
+      {"%%c", "([+-])"},              -- "%c" -> "([+-])"
+      {"%%d", "(%%d+)"},              -- "%d" -> "(%d+)"
+      {"%%s", "(.*)"},                -- "%s" -> "(.*)"
+      {"|4[^:]-:[^:]-:[^:]-;", ".-"}, -- removes |4singular:plural;
+      {"|4[^:]-:[^:]-;", ".-"},       -- removes ruRU |4singular:plural1:plural2;
+    }
+    local reversedPatternsCache = {}
+    function Addon:ReversePattern(text)
+      reversedPatternsCache[text] = reversedPatternsCache[text] or ("^" .. self:ChainGsub(text, unpack(chainGsubPattern)) .. "$")
+      return reversedPatternsCache[text]
+    end
+  end
+  
+  
+  function Addon:MakeAtlas(atlas, height, width, hex)
+    height = tostring(height or "0")
+    local tex = "|A:" .. atlas .. ":" .. height .. ":" .. tostring(width or height)
+    if hex then
+      tex = tex .. format(":::%d:%d:%d", self:ConvertHexToRGB(hex))
+    end
+    return tex .. "|a"
+  end
+  function Addon:MakeIcon(texture, height, width, hex)
+    local tex = "|T" .. texture .. ":" .. tostring(height or "0") .. ":"
+    if width then
+      tex = tex .. width
+    end
+    if hex then
+      tex = tex .. format(":::1:1:0:1:0:1:%d:%d:%d", self:ConvertHexToRGB(hex))
+    end
+    return tex .. "|t"
+  end
+  function Addon:UnmakeIcon(texture)
+    return strMatch(texture, "|T([^:]+):")
   end
 end
 

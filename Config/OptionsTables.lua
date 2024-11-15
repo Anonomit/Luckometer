@@ -6,6 +6,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
 
 
 
+local strMatch  = string.match
 local strGmatch = string.gmatch
 local strGsub   = string.gsub
 local strByte   = string.byte
@@ -16,6 +17,7 @@ local tblSort   = table.sort
 
 local mathMin   = math.min
 local mathMax   = math.max
+local mathCeil  = math.ceil
 
 
 
@@ -35,55 +37,13 @@ for i = 0, 5 do
 end
 
 local ROLL_TYPE_NAMES = {
-  format("%s %s", "|TInterface\\Buttons\\UI-GroupLoot-Dice-Up:16|t", Addon.L["Need"]),
-  format("%s %s", "|TInterface\\Buttons\\UI-GroupLoot-Coin-Up:16|t", Addon.L["Greed"]),
-  format("%s %s", "|TInterface\\Buttons\\UI-GroupLoot-DE-Up:16|t",   Addon.L["Disenchant"]),
+  format("%s %s", Addon:MakeIcon"Interface\\Buttons\\UI-GroupLoot-Dice-Up", Addon.L["Need"]),
+  format("%s %s", Addon:MakeIcon"Interface\\Buttons\\UI-GroupLoot-Coin-Up", Addon.L["Greed"]),
+  format("%s %s", Addon:MakeIcon"Interface\\Buttons\\UI-GroupLoot-DE-Up",   Addon.L["Disenchant"]),
 }
 
 
-local FACTION_SORT = Addon:MakeLookupTable{"Alliance", "Horde", "Neutral", "Unknown"}
 
-local function GetOrderedGUIDS()
-  local orderedGUIDs = {}
-  local guidData     = {}
-  for guid, charData in pairs(Addon:GetGlobalOptionQuiet"characters") do
-    orderedGUIDs[#orderedGUIDs+1] = guid
-    guidData[guid] = {charData.name, FACTION_SORT[Addon:GetFactionFromGUID(guid)], Addon:GetRealmFromGUID(guid)}
-  end
-  
-  tblSort(orderedGUIDs, function(a, b)
-    local nameA, factionA, realmA, realmNameA = unpack(guidData[a])
-    local nameB, factionB, realmB, realmNameB = unpack(guidData[b])
-    
-    if realmA ~= realmB then
-      if realmB == GetRealmID() then
-        return false
-      else
-        return realmA == GetRealmID() or realmNameA < realmNameB
-      end
-    elseif factionA ~= factionB then
-      if factionB == Addon.MY_FACTION then
-        return false
-      else
-        return factionA == Addon.MY_FACTION or factionA < factionB
-      end
-    elseif nameA ~= nameB then
-      if nameB == Addon.MY_NAME then
-        return false
-      else
-        return nameA == Addon.MY_NAME or nameA < nameB
-      end
-    else
-      if b == Addon.MY_GUID then
-        return false
-      else
-        return a == Addon.MY_GUID or a < b
-      end
-    end
-  end)
-  
-  return orderedGUIDs
-end
 
 
 
@@ -111,14 +71,14 @@ end
 
 
 
---  ███████╗████████╗ █████╗ ████████╗███████╗     ██████╗ ██████╗ ████████╗██╗ ██████╗ ███╗   ██╗███████╗
---  ██╔════╝╚══██╔══╝██╔══██╗╚══██╔══╝██╔════╝    ██╔═══██╗██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║██╔════╝
---  ███████╗   ██║   ███████║   ██║   ███████╗    ██║   ██║██████╔╝   ██║   ██║██║   ██║██╔██╗ ██║███████╗
---  ╚════██║   ██║   ██╔══██║   ██║   ╚════██║    ██║   ██║██╔═══╝    ██║   ██║██║   ██║██║╚██╗██║╚════██║
---  ███████║   ██║   ██║  ██║   ██║   ███████║    ╚██████╔╝██║        ██║   ██║╚██████╔╝██║ ╚████║███████║
---  ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚══════╝     ╚═════╝ ╚═╝        ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
+--  ███████╗██╗██╗  ████████╗███████╗██████╗ ███████╗
+--  ██╔════╝██║██║  ╚══██╔══╝██╔════╝██╔══██╗██╔════╝
+--  █████╗  ██║██║     ██║   █████╗  ██████╔╝███████╗
+--  ██╔══╝  ██║██║     ██║   ██╔══╝  ██╔══██╗╚════██║
+--  ██║     ██║███████╗██║   ███████╗██║  ██║███████║
+--  ╚═╝     ╚═╝╚══════╝╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝
 
-local function MakeStatsOptions(opts, categoryName)
+local function MakeFilterOptions(opts, categoryName)
   local self = Addon
   local GUI = self.GUI
   local opts = GUI:CreateGroup(opts, categoryName, categoryName, nil, "tab")
@@ -213,20 +173,21 @@ local function MakeStatsOptions(opts, categoryName)
         end
       end
       
-      GUI:CreateDescription(opts, format("%s: %s",      self.L["Loot Rolls"], count))
+      GUI:CreateDescription(opts, format("%s: %s", self.L["Loot Rolls"], count))
       GUI:CreateDescription(opts, format("%s: %s", self.L["Average"],    avg))
-      GUI:CreateDescription(opts, format("%s %s",       self.L["Score:"],     luck))
+      GUI:CreateDescription(opts, format("%s %s",  self.L["Score:"],     luck))
       
       do
         local processing = not self:IsThreadDead"RollResults" and threadData.refreshWhenDone
-        local disabled = not not (processing or threadData.results)
+        local disabled = not not (processing or results)
         
         GUI:CreateNewline(opts)
         GUI:CreateExecute(opts, "Search", processing and self.L["Processing..."] or disabled and self.L["Research Complete"] or self.L["Click to Research"], desc, function() Addon:StartRollCalculations(true) end, disabled)
       end
     end
     
-    GUI:CreateDescription(opts, format(self.L["Filter %s"], self.L["Loot Rolls"]))
+    GUI:CreateDescription(opts, format(self.L["Filter %s"], self.L["Loot Rolls"])).width = 0.8
+    GUI:CreateReset(opts, {"filters"}, function() self:ResetGlobalOptionQuiet("filters") end)
     
     -- filters
     do
@@ -234,9 +195,11 @@ local function MakeStatsOptions(opts, categoryName)
       do
         local opts = GUI:CreateGroup(opts, "Character", self.L["Character"], nil, "tab")
         
+        GUI:CreateReset(opts, {"filters", "character"}, function() self:ResetGlobalOptionQuiet("filters", "character") end)
+        
         -- character selection
         do
-          local opts = GUI:CreateGroup(opts, "Select", self.L["Select"], nil, "tab")
+          local opts = GUI:CreateGroup(opts, "Character", self.L["Character"], nil, "tab")
           
           local totalRolls = 0
           for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
@@ -311,7 +274,7 @@ local function MakeStatsOptions(opts, categoryName)
           local oldOpts = opts
           
           local realmIDs = {}
-          for i, guid in ipairs(GetOrderedGUIDS()) do
+          for i, guid in ipairs(self:GetOrderedGUIDS()) do
             local realmID, realmName = self:GetRealmFromGUID(guid)
             local newRealmID = false
             if realmIDs[#realmIDs] ~= realmName then
@@ -464,7 +427,7 @@ local function MakeStatsOptions(opts, categoryName)
           else
             local itemID = self.orderedLuckyItems[1]
             
-            GUI:CreateToggle(opts, {"filters", "character", "luckyItems", "enable"}, format(self.L["Requires %s"], self.luckyItemNames[itemID])).width = 1.3
+            GUI:CreateToggle(opts, {"filters", "character", "luckyItems", "enable"}, format(self.L["Requires %s"], " " .. self.luckyItemNames[itemID])).width = 1.3
             do
               local disabled = not self:GetGlobalOption("filters", "character", "luckyItems", "enable")
               
@@ -745,12 +708,170 @@ end
 
 
 
---   ██████╗ ██████╗ ███╗   ██╗███████╗██╗ ██████╗      ██████╗ ██████╗ ████████╗██╗ ██████╗ ███╗   ██╗███████╗
---  ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝     ██╔═══██╗██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║██╔════╝
---  ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗    ██║   ██║██████╔╝   ██║   ██║██║   ██║██╔██╗ ██║███████╗
---  ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║    ██║   ██║██╔═══╝    ██║   ██║██║   ██║██║╚██╗██║╚════██║
---  ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝    ╚██████╔╝██║        ██║   ██║╚██████╔╝██║ ╚████║███████║
---   ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝      ╚═════╝ ╚═╝        ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
+--  ██████╗  ██████╗ ██╗     ██╗         ██╗  ██╗██╗███████╗████████╗ ██████╗ ██████╗ ██╗   ██╗
+--  ██╔══██╗██╔═══██╗██║     ██║         ██║  ██║██║██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗╚██╗ ██╔╝
+--  ██████╔╝██║   ██║██║     ██║         ███████║██║███████╗   ██║   ██║   ██║██████╔╝ ╚████╔╝ 
+--  ██╔══██╗██║   ██║██║     ██║         ██╔══██║██║╚════██║   ██║   ██║   ██║██╔══██╗  ╚██╔╝  
+--  ██║  ██║╚██████╔╝███████╗███████╗    ██║  ██║██║███████║   ██║   ╚██████╔╝██║  ██║   ██║   
+--  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝    ╚═╝  ╚═╝╚═╝╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
+
+local function MakeHistoryOptions(opts, categoryName)
+  local self = Addon
+  local GUI = self.GUI
+  local opts = GUI:CreateGroup(opts, categoryName, categoryName, nil, "tab")
+  GUI:SetDBType"Global"
+  
+  
+  local threadData = self:GetThreadData"RollResults" or {}
+  local results = threadData.results
+  
+  -- Calculations incomplete
+  do
+    do
+      local processing = not self:IsThreadDead"RollResults" and threadData.refreshWhenDone
+      local disabled = not not (processing or results)
+      
+      if not results then
+        GUI:CreateExecute(opts, "Search", processing and self.L["Processing..."] or disabled and self.L["Research Complete"] or self.L["Click to Research"], desc, function() Addon:StartRollCalculations(true) end, disabled)
+      end
+    end
+  end
+  
+  -- No rolls passed filters
+  if results and results.count == 0 then
+    
+    GUI:CreateDivider(opts)
+    GUI:CreateDescription(opts, format("%s: 0", self.L["Loot Rolls"]))
+    GUI:CreateDivider(opts)
+    GUI:CreateExecute(opts, "Filters", self.L["Filters"], desc, function() self:OpenConfig"Filters" end, disabled)
+  
+  -- calculations complete
+  elseif results then
+    local rollsPerPage = 5
+    local rollCount = results.count
+    local pageCount = mathCeil(rollCount / rollsPerPage)
+    
+    self.currentHistoryPage = mathMin(self.currentHistoryPage or 1, pageCount)
+    
+    if pageCount > 1 then
+      local name = pageCount == 1 and format(self.L["Page %d"], self.currentHistoryPage) or format(self.L["Page %d / %d"], self.currentHistoryPage, pageCount)
+      
+      do
+        local disabled = self.currentHistoryPage == 1
+        
+        if pageCount > 11 then
+          GUI:CreateExecute(opts, "-100", "<<<", "-100", function() self.currentHistoryPage = self:Clamp(1, self.currentHistoryPage - 100, pageCount) end, disabled).width = 0.3
+        end
+        if pageCount > 2 then
+          GUI:CreateExecute(opts, "-10", "<<", "-10", function() self.currentHistoryPage = self:Clamp(1, self.currentHistoryPage - 10, pageCount) end, disabled).width = 0.3
+        end
+        GUI:CreateExecute(opts, "-1", "<", "-1", function() self.currentHistoryPage = self:Clamp(1, self.currentHistoryPage - 1, pageCount) end, disabled).width = 0.3
+      end
+      
+      do
+        local option = GUI:CreateRange(opts, {"page"}, name, nil, 1, pageCount, 1, disabled)
+        option.width = 1.5
+        option.get = function(info)      return self.currentHistoryPage       end
+        option.set = function(info, val)        self.currentHistoryPage = val end
+      end
+      
+      do
+        local disabled = self.currentHistoryPage == pageCount
+        
+        GUI:CreateExecute(opts, "+1", ">", "+1", function() self.currentHistoryPage = self:Clamp(1, self.currentHistoryPage + 1, pageCount) end, disabled).width = 0.3
+        if pageCount > 2 then
+          GUI:CreateExecute(opts, "+10", ">>", "+10", function() self.currentHistoryPage = self:Clamp(1, self.currentHistoryPage + 10, pageCount) end, disabled).width = 0.3
+        end
+        if pageCount > 11 then
+          GUI:CreateExecute(opts, "+100", ">>>", "+100", function() self.currentHistoryPage = self:Clamp(1, self.currentHistoryPage + 100, pageCount) end, disabled).width = 0.3
+        end
+      end
+    end
+    
+    do
+      local opts = GUI:CreateGroupBox(opts, self.L["History"])
+      
+      local topRoll    = (self.currentHistoryPage-1) * rollsPerPage + 1
+      local bottomRoll = mathMin(self.currentHistoryPage * rollsPerPage, rollCount)
+      
+      local fontSize = "medium"
+      
+      local youWonText = format(" - %s", self:MakeColorCode("00ff00", self.L["You Won!"]))
+      local itemButtonTooltipText = format("|n|cffffd706%s:|r %s|n|cffffd706%s-%s:|r %s|n|cffffd706%s-%s:|r %s",
+        self.L["Left-Click"], self.L["Check out this item!"],
+        self.L["SHIFT"], self.L["Left-Click"], self.L["Link Item to Chat"],
+        self.L["CTRL"], self.L["Left-Click"], self.L["View in Dressing Room"]
+      )
+      
+      for i = topRoll, bottomRoll do
+        local roll = results.rolls[i]
+        
+        local opts = GUI:CreateGroupBox(opts, format("#%s: %s", self:ToFormattedNumber(i), self:GetFriendlyDate(roll.datetime)))
+        
+        local charName  = self:GetColoredNameRealmFromGUID(roll.guid)
+        local rollScore = self:Round(self:GetRollScore(roll.roll, roll.min, roll.max) * 100, 0.1)
+        
+        if roll.manual then
+          
+          GUI:CreateDescription(opts, format(self.L["%s rolls %s (%s-%s)"], charName, self:ToFormattedNumber(roll.roll), self:ToFormattedNumber(roll.min), self:ToFormattedNumber(roll.max)), fontSize)
+        else
+          local pattern = self.L["%s rolls %d (%s)"]
+          if roll.won then
+            pattern = pattern .. youWonText
+          end
+          GUI:CreateDescription(opts, format(pattern, charName, roll.roll, ROLL_TYPE_NAMES[roll.rollType]), fontSize)
+        end
+        
+        if not self:IsStandardRoll(roll.min, roll.max) then
+          GUI:CreateDescription(opts, format("%s %s%%", self.L["Score:"], self:Round(self:GetRollScore(roll.roll, roll.min, roll.max) * 100, 0.1)), fontSize)
+        end
+        
+        if roll.luckyItems then
+          local itemNames = {}
+          for itemID in self:Ordered(roll.luckyItems) do
+            itemNames[#itemNames+1] = self.luckyItemNames[itemID]
+          end
+          GUI:CreateDescription(opts, format(self.L["%d |4item:items; in inventory"] .. ":  %s", #itemNames, tblConcat(itemNames, " & ")), fontSize)
+        end
+        
+        if not roll.manual then
+          
+          GUI:CreateDescription(opts, format("%s: %d", self.L["Players"], roll.numPlayers), fontSize)
+          
+          do
+            local item      = self.ItemCache(roll.itemLink)
+            local colorCode = ITEM_QUALITY_COLORS[item:GetQuality()].hex
+            local itemName  = format("%s %s%s", self:MakeIcon(item:GetIcon()), colorCode, item:GetName())
+            
+            local desc = itemButtonTooltipText
+            
+            GUI:CreateExecute(opts, "item", itemName, desc, function()
+              if IsShiftKeyDown() or IsControlKeyDown() then
+                HandleModifiedItemClick(item:GetLink())
+              else
+                ItemRefTooltip:SetOwner(WorldFrame, "ANCHOR_TOP_LEFT")
+                ItemRefTooltip:SetHyperlink(roll.itemLink)
+                ItemRefTooltip:Show()
+              end
+            end, disabled).width = 2
+          end
+        end
+      end
+    end
+  end
+    
+  
+  return opts
+end
+
+
+
+--   ██████╗ ██████╗ ███╗   ██╗███████╗██╗ ██████╗ 
+--  ██╔════╝██╔═══██╗████╗  ██║██╔════╝██║██╔════╝ 
+--  ██║     ██║   ██║██╔██╗ ██║█████╗  ██║██║  ███╗
+--  ██║     ██║   ██║██║╚██╗██║██╔══╝  ██║██║   ██║
+--  ╚██████╗╚██████╔╝██║ ╚████║██║     ██║╚██████╔╝
+--   ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝ 
 
 local function MakeConfigOptions(opts, categoryName)
   local self = Addon
@@ -759,136 +880,89 @@ local function MakeConfigOptions(opts, categoryName)
   GUI:SetDBType"Global"
   
   
-  
-  
+  -- Display Options
   do
-    local text = format("%s %s (%s)", self.L["Maximum"], self.L["|4Loot Roll:Loot Rolls;"], self.L["Total"])
-    local opts = GUI:CreateGroupBox(opts, text)
+    local opts = GUI:CreateGroup(opts, "Display", self.L["Display"], nil, "tab")
     
-    GUI:CreateReverseToggle(opts, {"maxRollStorage", "global", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+    local d = {
+      year     = 2004,
+      month    = 11,
+      monthDay = 23,
+      weekday  = 6,
+      hour     = 13,
+      minute   = 30,
+    }
+    
+    local weekDay = CALENDAR_WEEKDAY_NAMES[d.weekday]
+    local month   = CALENDAR_FULLDATE_MONTH_NAMES[d.month]
+    
     do
-      local disabled = disabled or not self:GetGlobalOption("maxRollStorage", "global", "enable")
-      
-      local option = GUI:CreateRange(opts, {"maxRollStorage", "global", "limit"}, self.L["Maximum"], nil, 1000, 1000000, 1, disabled)
-      option.bigStep = 1000
-      option.softMax = 100000
-      GUI:CreateExecute(opts, {"maxRollStorage", "global", "limit"}, self.L["Reset"], desc, function()
-        self:ResetGlobalOption("maxRollStorage", "global", "enable")
-        self:ResetGlobalOption("maxRollStorage", "global", "limit")
-      end).width = 0.6
-      GUI:CreateNewline(opts)
-      
-      do
-        local totalRolls = self:CountRolls()
-        local limit = self:GetGlobalOption("maxRollStorage", "global", "limit")
-        
-        local disabled = not self:GetGlobalOption("maxRollStorage", "global", "enable") or totalRolls <= limit
-        
-        do
-          local text
-          if totalRolls < limit then
-            if self:GetGlobalOption("maxRollStorage", "global", "enable") then
-              text = format("%s / %s %s (%s%%)", self:ToFormattedNumber(totalRolls), self:ToFormattedNumber(limit), self.L["|4Loot Roll:Loot Rolls;"], self:ToFormattedNumber(totalRolls / limit * 100, 1))
-            else
-              text = format("%s %s", self:ToFormattedNumber(totalRolls), self.L["|4Loot Roll:Loot Rolls;"])
-            end
-          else
-            text = format("%s / %s %s", self:ToFormattedNumber(totalRolls), self:ToFormattedNumber(limit), self.L["|4Loot Roll:Loot Rolls;"])
-            text = format(self.L["%s (Full)"], text)
-          end
-          GUI:CreateDescription(opts, text).width = 1.3
-        end
-        
-        if totalRolls > 0 then
-          do
-            local width = 0.7
-            if disabled then
-              GUI:CreateDescription(opts, " ").width = width
-            else
-              local text, desc
-              if disabled then
-                text = self.L["Delete"]
-              else
-                text = format("%s %s", self.L["Delete"], self:ToFormattedNumber(totalRolls - limit))
-                desc = format("%s %s %s", self.L["Delete"], self:ToFormattedNumber(totalRolls - limit), self.L["|4Loot Roll:Loot Rolls;"])
-              end
-              local option = GUI:CreateExecute(opts, "Trim", text, desc, function()
-                self:TrimRolls()
-                self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
-              end, disabled)
-              option.width = width
-              option.confirm = function() return format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], format("%s %s", self:ToFormattedNumber(totalRolls - limit), self.L["|4Loot Roll:Loot Rolls;"])) end
-            end
-          end
-          
-          do
-            local disabled = false
-            local option = GUI:CreateExecute(opts, "Obliterate", self.L["Obliterate"], desc, function()
-              self:ResetGlobalOptionQuiet"rolls"
-              self:ResetGlobalOptionQuiet"characters"
-              self:ResetGlobalOptionQuiet"realms"
-              self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
-            end, disabled)
-            option.width = 0.6
-            option.confirm = function() return format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], format("%s %s", self:ToFormattedNumber(totalRolls), self.L["|4Loot Roll:Loot Rolls;"])) end
-          end
-        end
+      local patterns = {
+        "%5$s %4$s %3$d %1$d",
+        "%4$s %3$d %1$d",
+        "%5$s %1$d-%2$02d-%3$02d",
+        "%1$d-%2$02d-%3$02d",
+        "%3$02d-%2$02d-%1$d",
+        "%2$02d-%3$02d-%1$d",
+      }
+      local values = {}
+      for _, pattern in ipairs(patterns) do
+        values[pattern] = format(pattern, d.year, d.month, d.monthDay, month, weekDay)
       end
+      
+      GUI:CreateDropdown(opts, {"display", "dateFormat"}, "", desc, values, patterns, disabled).width = 1.3
+      
     end
+    
+    do
+      local hour12 = d.hour
+      local timeString
+      if hour12 == 0 then
+        hour12 = 12
+        timeString = self.L["%d:%02d AM"]
+      elseif hour12 > 12 then
+        hour12 = hour12 - 12
+        timeString = self.L["%d:%02d PM"]
+      end
+      
+      GUI:CreateDropdown(opts, {"display", "use24hTime"}, "", desc, {[true] = format(self.L["%02d:%02d"], d.hour, d.minute), [false] = format(timeString, hour12, d.minute)}, {true, false}, disabled).width = 0.7
+    end
+    
   end
   
-  GUI:CreateNewline(opts)
-  
-  
+  -- Addon Memory
   do
-    local text = format("%s %s (%s)", self.L["Maximum"], self.L["|4Loot Roll:Loot Rolls;"], self.L["Character"])
-    local opts = GUI:CreateGroupBox(opts, text)
+    local opts = GUI:CreateGroup(opts, "AddOn Memory", self.L["AddOn Memory"], nil, "tab")
     
-    GUI:CreateReverseToggle(opts, {"maxRollStorage", "character", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+    -- Global Roll Limits
     do
-      local disabled = disabled or not self:GetGlobalOption("maxRollStorage", "character", "enable")
+      local text = format("%s %s (%s)", self.L["Maximum"], self.L["|4Loot Roll:Loot Rolls;"], self.L["Total"])
+      local opts = GUI:CreateGroupBox(opts, text)
       
-      local option = GUI:CreateRange(opts, {"maxRollStorage", "character", "limit"}, self.L["Maximum"], nil, 1000, 1000000, 1, disabled)
-      option.bigStep = 1000
-      option.softMax = 100000
-      GUI:CreateExecute(opts, {"maxRollStorage", "character", "limit"}, self.L["Reset"], desc, function()
-        self:ResetGlobalOption("maxRollStorage", "character", "enable")
-        self:ResetGlobalOption("maxRollStorage", "character", "limit")
-      end).width = 0.6
-      GUI:CreateNewline(opts)
-      
+      GUI:CreateReverseToggle(opts, {"maxRollStorage", "global", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
       do
-        local disabled = not self:GetGlobalOption("maxRollStorage", "character", "enable")
+        local disabled = disabled or not self:GetGlobalOption("maxRollStorage", "global", "enable")
         
-        local oldOpts = opts
+        local option = GUI:CreateRange(opts, {"maxRollStorage", "global", "limit"}, self.L["Maximum"], nil, 1000, 1000000, 1, disabled)
+        option.width   = 1.3
+        option.bigStep = 1000
+        option.softMax = 100000
+        GUI:CreateExecute(opts, {"maxRollStorage", "global", "limit"}, self.L["Reset"], desc, function()
+          self:ResetGlobalOption("maxRollStorage", "global", "enable")
+          self:ResetGlobalOption("maxRollStorage", "global", "limit")
+        end).width = 0.6
+        GUI:CreateNewline(opts)
         
-        local realmIDs = {}
-        for i, guid in ipairs(GetOrderedGUIDS()) do
+        do
+          local totalRolls = self:CountRolls()
+          local limit = self:GetGlobalOption("maxRollStorage", "global", "limit")
           
-          local limit = self:GetGlobalOption("maxRollStorage", "character", "limit")
-          local totalRolls = self:GetGlobalOptionQuiet("rolls", guid):GetCount()
-          local nameRealm = self:GetColoredNameRealmFromGUID(guid)
-          local disabled = disabled or totalRolls <= limit
-          
-          local realmID, realmName = self:GetRealmFromGUID(guid)
-          local newRealmID = false
-          if realmIDs[#realmIDs] ~= realmName then
-            newRealmID = true
-            realmIDs[#realmIDs+1] = realmName
-          end
-          
-          if newRealmID then
-            opts = GUI:CreateGroupBox(oldOpts, realmName)
-          else
-            GUI:CreateNewline(opts)
-          end
-          
-          GUI:CreateDescription(opts, nameRealm, "medium").width = 1
+          local disabled = not self:GetGlobalOption("maxRollStorage", "global", "enable") or totalRolls <= limit
           
           do
             local text
             if totalRolls < limit then
-              if self:GetGlobalOption("maxRollStorage", "character", "enable") then
+              if self:GetGlobalOption("maxRollStorage", "global", "enable") then
                 text = format("%s / %s %s (%s%%)", self:ToFormattedNumber(totalRolls), self:ToFormattedNumber(limit), self.L["|4Loot Roll:Loot Rolls;"], self:ToFormattedNumber(totalRolls / limit * 100, 1))
               else
                 text = format("%s %s", self:ToFormattedNumber(totalRolls), self.L["|4Loot Roll:Loot Rolls;"])
@@ -897,7 +971,7 @@ local function MakeConfigOptions(opts, categoryName)
               text = format("%s / %s %s", self:ToFormattedNumber(totalRolls), self:ToFormattedNumber(limit), self.L["|4Loot Roll:Loot Rolls;"])
               text = format(self.L["%s (Full)"], text)
             end
-            GUI:CreateDescription(opts, text, "medium").width = 1.1
+            GUI:CreateDescription(opts, text).width = 1.3
           end
           
           if totalRolls > 0 then
@@ -914,7 +988,7 @@ local function MakeConfigOptions(opts, categoryName)
                   desc = format("%s %s %s", self.L["Delete"], self:ToFormattedNumber(totalRolls - limit), self.L["|4Loot Roll:Loot Rolls;"])
                 end
                 local option = GUI:CreateExecute(opts, "Trim", text, desc, function()
-                  self:TrimRolls(guid)
+                  self:TrimRolls()
                   self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
                 end, disabled)
                 option.width = width
@@ -925,37 +999,141 @@ local function MakeConfigOptions(opts, categoryName)
             do
               local disabled = false
               local option = GUI:CreateExecute(opts, "Obliterate", self.L["Obliterate"], desc, function()
-                self:DeleteCharacter(guid)
+                self:ResetGlobalOptionQuiet"rolls"
+                self:ResetGlobalOptionQuiet"characters"
+                self:ResetGlobalOptionQuiet"realms"
                 self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
               end, disabled)
               option.width = 0.6
-              option.confirm = function() return format("%s|n|n%d %s", format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], "|n" .. nameRealm), totalRolls, self.L["|4Loot Roll:Loot Rolls;"]) end
+              option.confirm = function() return format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], format("%s %s", self:ToFormattedNumber(totalRolls), self.L["|4Loot Roll:Loot Rolls;"])) end
             end
           end
         end
-        opts = oldOpts
       end
     end
-  end
-  
-  do
-    local needsDefrag = false
-    for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
-      needsDefrag = rolls:CanDefrag()
-      if needsDefrag then break end
+    
+    GUI:CreateNewline(opts)
+    
+    -- Character Roll Limits
+    do
+      local text = format("%s %s (%s)", self.L["Maximum"], self.L["|4Loot Roll:Loot Rolls;"], self.L["Character"])
+      local opts = GUI:CreateGroupBox(opts, text)
+      
+      GUI:CreateReverseToggle(opts, {"maxRollStorage", "character", "enable"}, self.L["Unlimited"], nil, disabled).width = 0.7
+      do
+        local disabled = disabled or not self:GetGlobalOption("maxRollStorage", "character", "enable")
+        
+        local option = GUI:CreateRange(opts, {"maxRollStorage", "character", "limit"}, self.L["Maximum"], nil, 1000, 1000000, 1, disabled)
+        option.width   = 1.3
+        option.bigStep = 1000
+        option.softMax = 100000
+        GUI:CreateExecute(opts, {"maxRollStorage", "character", "limit"}, self.L["Reset"], desc, function()
+          self:ResetGlobalOption("maxRollStorage", "character", "enable")
+          self:ResetGlobalOption("maxRollStorage", "character", "limit")
+        end).width = 0.6
+        GUI:CreateNewline(opts)
+        
+        do
+          local disabled = not self:GetGlobalOption("maxRollStorage", "character", "enable")
+          
+          local oldOpts = opts
+          
+          local realmIDs = {}
+          for i, guid in ipairs(self:GetOrderedGUIDS()) do
+            
+            local limit = self:GetGlobalOption("maxRollStorage", "character", "limit")
+            local totalRolls = self:GetGlobalOptionQuiet("rolls", guid):GetCount()
+            local nameRealm = self:GetColoredNameRealmFromGUID(guid)
+            local disabled = disabled or totalRolls <= limit
+            
+            local realmID, realmName = self:GetRealmFromGUID(guid)
+            local newRealmID = false
+            if realmIDs[#realmIDs] ~= realmName then
+              newRealmID = true
+              realmIDs[#realmIDs+1] = realmName
+            end
+            
+            if newRealmID then
+              opts = GUI:CreateGroupBox(oldOpts, realmName)
+            else
+              GUI:CreateNewline(opts)
+            end
+            
+            GUI:CreateDescription(opts, nameRealm, "medium").width = 1
+            
+            do
+              local text
+              if totalRolls < limit then
+                if self:GetGlobalOption("maxRollStorage", "character", "enable") then
+                  text = format("%s / %s %s (%s%%)", self:ToFormattedNumber(totalRolls), self:ToFormattedNumber(limit), self.L["|4Loot Roll:Loot Rolls;"], self:ToFormattedNumber(totalRolls / limit * 100, 1))
+                else
+                  text = format("%s %s", self:ToFormattedNumber(totalRolls), self.L["|4Loot Roll:Loot Rolls;"])
+                end
+              else
+                text = format("%s / %s %s", self:ToFormattedNumber(totalRolls), self:ToFormattedNumber(limit), self.L["|4Loot Roll:Loot Rolls;"])
+                text = format(self.L["%s (Full)"], text)
+              end
+              GUI:CreateDescription(opts, text, "medium").width = 1.1
+            end
+            
+            if totalRolls > 0 then
+              do
+                local width = 0.7
+                if disabled then
+                  GUI:CreateDescription(opts, " ").width = width
+                else
+                  local text, desc
+                  if disabled then
+                    text = self.L["Delete"]
+                  else
+                    text = format("%s %s", self.L["Delete"], self:ToFormattedNumber(totalRolls - limit))
+                    desc = format("%s %s %s", self.L["Delete"], self:ToFormattedNumber(totalRolls - limit), self.L["|4Loot Roll:Loot Rolls;"])
+                  end
+                  local option = GUI:CreateExecute(opts, "Trim", text, desc, function()
+                    self:TrimRolls(guid)
+                    self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
+                  end, disabled)
+                  option.width = width
+                  option.confirm = function() return format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], format("%s %s", self:ToFormattedNumber(totalRolls - limit), self.L["|4Loot Roll:Loot Rolls;"])) end
+                end
+              end
+              
+              do
+                local disabled = false
+                local option = GUI:CreateExecute(opts, "Obliterate", self.L["Obliterate"], desc, function()
+                  self:DeleteCharacter(guid)
+                  self:FireAddonEvent"RESET_FILTER_CALCULATIONS"
+                end, disabled)
+                option.width = 0.6
+                option.confirm = function() return format("%s|n|n%d %s", format(self.L["Are you sure you want to permanently delete |cffffffff%s|r?"], "|n" .. nameRealm), totalRolls, self.L["|4Loot Roll:Loot Rolls;"]) end
+              end
+            end
+          end
+          opts = oldOpts
+        end
+      end
     end
     
-    if needsDefrag then
-      GUI:CreateNewline(opts)
+    -- Defrag
+    do
+      local needsDefrag = false
+      for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+        needsDefrag = rolls:CanDefrag()
+        if needsDefrag then break end
+      end
       
-      local opts = GUI:CreateGroupBox(opts, self.L["AddOn Memory"])
-      
-      local option = GUI:CreateExecute(opts, "Defrag", self.L["Cleanup"], desc, function()
-        for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
-          rolls:Defrag()
-        end
-      end, disabled)
-      option.width = 0.7
+      if needsDefrag then
+        GUI:CreateNewline(opts)
+        
+        local opts = GUI:CreateGroupBox(opts, self.L["AddOn Memory"])
+        
+        local option = GUI:CreateExecute(opts, "Defrag", self.L["Cleanup"], desc, function()
+          for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+            rolls:Defrag()
+          end
+        end, disabled)
+        option.width = 0.7
+      end
     end
   end
   
@@ -1067,10 +1245,11 @@ local function MakeDebugOptions(opts, categoryName)
   -- Filter
   do
     local opts = GUI:CreateGroup(opts, "Filter", "Filter")
-      
-    local option = GUI:CreateRange(opts, {"calculations", "filterSpeed"}, "Filter speed", nil, 0, 1000000, 1, disabled)
+    
+    local option = GUI:CreateRange(opts, {"calculations", "filterSpeed"}, self.L["Speed"], nil, 1, 1000000, 1, disabled)
     option.width   = 2
     option.bigStep = 10
+    option.softMin = 10
     option.softMax = 1000
     GUI:CreateReset(opts, {"calculations", "filterSpeed"})
     GUI:CreateNewline(opts)
@@ -1103,11 +1282,12 @@ function Addon:MakeAddonOptions(chatCmd)
   local sections = {}
   for _, data in ipairs{
     -- {MakeGeneralOptions, ADDON_NAME},
-    {MakeStatsOptions,  self.L["Stats"],        "stats"},
-    {MakeConfigOptions, self.L["AddOn Memory"], "memory"},
+    {MakeFilterOptions,  self.L["Filters"], "filters"},
+    {MakeHistoryOptions, self.L["History"], "history"},
+    {MakeConfigOptions,  self.L["Options"], "options", "config"},
     
-    -- {MakeProfileOptions, "Profiles",        "profiles"},
-    {MakeDebugOptions,   self.L["Debug"],   "debug"},
+    -- {MakeProfileOptions, "Profiles",             "profiles"},
+    {MakeDebugOptions,   self.L["Debug"],        "debug"},
   } do
     
     local func = data[1]

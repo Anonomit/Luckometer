@@ -7,20 +7,9 @@ local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
 
 
 
-local strMatch = string.match
 
 
-
-local ROLL_PATTERN
-do
-  local chainGsubPattern = {
-    {"%%%d%$", "%%"},               -- koKR ITEM_RESIST_SINGLE: "%3$s 저항력 %1$c%2$d" -> "%s 저항력 %c%d"
-    {"[().+-]", "%%%0"},            -- cover special characters with escape codes
-    {"%%d", "(%%d+)"},              -- "%d" -> "(%d+)"
-    {"%%s", "(.*)"},                -- "%s" -> "(.*)"
-  }
-  ROLL_PATTERN = "^" .. Addon:ChainGsub(Addon.L["%s rolls %d (%d-%d)"], unpack(chainGsubPattern)) .. "$"
-end
+local RANDOM_ROLL_CAPTURE = Addon:ReversePattern(Addon.L["%s rolls %d (%d-%d)"])
 
 
 
@@ -115,7 +104,7 @@ Addon:RegisterAddonEventCallback("ENABLE", function(self)
   Addon:RegisterEventCallback("CHAT_MSG_SYSTEM", function(self, e, msg, ...) -- text, playerName, languageName, channelName, playerName2, specialFlags, zoneChannelID, channelIndex, channelBaseName, languageID, lineID, guid, bnSenderID, isMobile, isSubtitle, hideSenderInLetterbox, supressRaidIcons
     if not msg then return end
     
-    local source, roll, min, max = msg:match(ROLL_PATTERN)
+    local source, roll, min, max = msg:match(RANDOM_ROLL_CAPTURE)
     if source ~= self.MY_NAME then return end
     
     roll = tonumber(roll)

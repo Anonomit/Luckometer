@@ -104,7 +104,7 @@ L["[%d,%.]+"] = function() return "[%d%" .. L[","] .. "%" .. L["."] .. "]+" end
 
 
 
-L["Options"] = OPTIONS
+
 L["Unknown"] = UNKNOWN
 
 L["Enable"]      = ENABLE
@@ -140,18 +140,17 @@ L["Hide messages like this one."] = COMBAT_LOG_MENU_SPELL_HIDE
 
 
 
-L["Reset"]      = RESET
-L["Custom"]     = CUSTOM
-L["Hide"]       = HIDE
-L["Show"]       = SHOW
+L["Reset"]  = RESET
+L["Custom"] = CUSTOM
+L["Hide"]   = HIDE
+L["Show"]   = SHOW
 
-L["Category"]          = CATEGORY
-L["Settings"]          = SETTINGS
--- L["Other Options"]  = UNIT_FRAME_DROPDOWN_SUBSECTION_TITLE_OTHER
-L["Other"]             = FACTION_OTHER
-L["Miscellaneous"]     = MISCELLANEOUS
-L["Minimum"]           = MINIMUM
-L["Maximum"]           = MAXIMUM
+L["Category"] = CATEGORY
+
+L["Other"]         = FACTION_OTHER
+L["Miscellaneous"] = MISCELLANEOUS
+L["Minimum"]       = MINIMUM
+L["Maximum"]       = MAXIMUM
 
 L["Manual"] = TRACKER_SORT_MANUAL
 
@@ -168,9 +167,12 @@ L["Classes: %s"] = ITEM_CLASSES_ALLOWED
 L["%s rolls %d (%d-%d)"] = RANDOM_ROLL_RESULT
 
 
-
+L["Settings"]         = SETTINGS
+L["Options"]          = OPTIONS
+L["Other Options"]    = UNIT_FRAME_DROPDOWN_SUBSECTION_TITLE_OTHER
 L["General Options"]  = COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL
 L["Advanced Options"] = ADVANCED_OPTIONS
+L["Display Options"]  = DISPLAY_OPTIONS
 L["Chat Options"]     = CHAT_OPTIONS_LABEL
 L["Loot Options"]     = UNIT_FRAME_DROPDOWN_SUBSECTION_TITLE_LOOT
 L["Help"]             = HELP_LABEL
@@ -181,12 +183,19 @@ L["Please select one of the following options:"] = HARASSMENT_TEXT
 
 
 
-L["Total"]   = TOTAL
-L["Total:"]  = FROM_TOTAL
-L["Average"] = GMSURVEYRATING3
-L["Score:"]  = PROVING_GROUNDS_SCORE
+L["Loot Roll"]               = LOOT_ROLL
+L["Loot Rolls"]              = LOOT_ROLLS
+L["|4Loot Roll:Loot Rolls;"] = function() return format("|4%s:%s;", LOOT_ROLL, LOOT_ROLLS) end
+L["Click to Research"]       = ORDER_HALL_TALENT_RESEARCH
+L["Processing..."]           = BLIZZARD_STORE_PROCESSING
+L["Research Complete"]       = GARRISON_TALENT_RESEARCH_COMPLETE
+L["Total"]                   = TOTAL
+L["Total:"]                  = FROM_TOTAL
+L["Average"]                 = GMSURVEYRATING3
+L["Score:"]                  = PROVING_GROUNDS_SCORE
 
 L["Stats"]           = PET_BATTLE_STATS_LABEL
+L["Filter"]          = FILTER
 L["Filters"]         = FILTERS
 L["Filter %s"]       = function() return strGsub(DEFAULT_COMBATLOG_FILTER_NAME, "%%d", "%%s") end
 L["Character"]       = CHARACTER
@@ -211,7 +220,6 @@ L["Inventory"]       = INVENTORY_TOOLTIP
 L["Required items:"] = TURN_IN_ITEMS
 L["Requires %s"]     = LOCKED_WITH_ITEM
 
-
 L["Group Loot"]   = function() return strMatch(LOOT_GROUP_LOOT, ": *(.+)") end
 L["/roll"]        = SLASH_RANDOM7
 L["Win"]          = WIN
@@ -227,13 +235,39 @@ L["Limit to %s"]  = LFG_LIST_CROSS_FACTION
 L["Unlimited"]    = UNLIMITED
 
 
-L["Loot Roll"]               = LOOT_ROLL
-L["Loot Rolls"]              = LOOT_ROLLS
-L["|4Loot Roll:Loot Rolls;"] = function() return format("|4%s:%s;", LOOT_ROLL, LOOT_ROLLS) end
-L["Click to Research"]       = ORDER_HALL_TALENT_RESEARCH
-L["Processing..."]           = BLIZZARD_STORE_PROCESSING
-L["Research Complete"]       = GARRISON_TALENT_RESEARCH_COMPLETE
+L["History"]                       = HISTORY
+L["Switch Page"]                   = LOOT_NEXT_PAGE
+L["Page %d"]                       = PAGE_NUMBER
+L["Page %d / %d"]                  = COLLECTION_PAGE_NUMBER
+L["%d:%02d AM"]                    = TIME_TWELVEHOURAM
+L["%d:%02d PM"]                    = TIME_TWELVEHOURPM
+L["%02d:%02d"]                     = TIMEMANAGER_TICKER_24HOUR
+L["Type:"]                         = CHOOSE_YOUR_DUNGEON
+L["Item"]                          = HELPFRAME_ITEM_TITLE
+L["You Won!"]                      = YOU_WON_LABEL
+L["%d |4item:items; in inventory"] = ITEMS_IN_INVENTORY
 
+L["Left-Click"] = function() return strMatch(NPE_TARGETFIRSTMOB, "^|c........(.-)|r") end
+L["SHIFT"] = SHIFT_KEY_TEXT
+L["CTRL"] = CTRL_KEY_TEXT
+L["Check out this item!"] = SOCIAL_ITEM_PREFILL_TEXT_GENERIC
+L["Link Item to Chat"] = GUILD_NEWS_LINK_ITEM
+L["View in Dressing Room"] = VIEW_IN_DRESSUP_FRAME
+
+do
+  local rollPattern = Addon:ChainGsub(RANDOM_ROLL_RESULT, {"%%%d%$", "%%"})
+  
+  local groupLootRollPattern = Addon:ChainGsub(rollPattern, {"%(%%d%-%%d%)", "(%%s)"})
+  local manualRollPattern    = Addon:ChainGsub(rollPattern, {"%%d", "%%s"})
+  
+  L["%s rolls %d (%s)"]    = groupLootRollPattern
+  L["%s rolls %s (%s-%s)"] = manualRollPattern
+end
+
+
+L["Display"] = DISPLAY
+L["Speed"] = SPEED
+L["Research Time:"] = RESEARCH_TIME_LABEL
 
 L["AddOn Memory"] = function() return TrimSpaces(strMatch(TOTAL_MEM_KB_ABBR, "[^:]+")) end
 L["%s (Full)"   ] = BATTLEFIELD_FULL

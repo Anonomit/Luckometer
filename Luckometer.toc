@@ -1,7 +1,7 @@
-## Interface: 40400
-## Interface-Cata: 40400
-## Interface-Classic: 11504
-## Version: 1.4.1
+## Interface:         40401
+## Interface-Cata:    40401
+## Interface-Classic: 11505
+## Version: 1.5.0
 
 ## X-Curse-Project-ID: 1105259
 ## X-Wago-ID: b6mbeqKP

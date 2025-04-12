@@ -54,8 +54,8 @@ do
         
         {"type", self.manual and "manual" or "group"},
         
-        {"min",  Addon:ShortCircuit(self.min == 1,   nil, self.min)},
-        {"max",  Addon:ShortCircuit(self.max == 100, nil, self.max)},
+        {"min",  Addon:Ternary(self.min == 1,   nil, self.min)},
+        {"max",  Addon:Ternary(self.max == 100, nil, self.max)},
         
         {"numPlayers", self.numPlayers},
         {"itemLink",   self.itemLink},

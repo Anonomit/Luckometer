@@ -116,7 +116,7 @@ function Addon:OnInitialize()
 end
 
 function Addon:OnEnable()
-  self.version = self.SemVer(GetAddOnMetadata(ADDON_NAME, "Version"))
+  self.version = self.SemVer(C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version"))
   self:InitDB(dbInitFuncs)
   self:GetDB().RegisterCallback(self, "OnProfileChanged", function() self:InitDB(dbInitFuncs, "profile") end)
   self:GetDB().RegisterCallback(self, "OnProfileCopied" , function() self:InitDB(dbInitFuncs, "profile") end)

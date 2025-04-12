@@ -327,8 +327,8 @@ do
   Addon.isEra     = Addon.expansionLevel == Addon.expansions.era
   
   local season = ((C_Seasons or {}).GetActiveSeason or nop)() or 0
-  Addon.isSoM = season == Enum.SeasonID.SeasonOfMastery
-  Addon.isSoD = season == Enum.SeasonID.SeasonOfDiscovery
+  Addon.isSoM = C_Seasons and season == Enum.SeasonID.SeasonOfMastery   or false
+  Addon.isSoD = C_Seasons and season == Enum.SeasonID.SeasonOfDiscovery or false
 end
 
 
@@ -1259,11 +1259,19 @@ do
   end
   
   
-  function Addon:ShortCircuit(expression, trueVal, falseVal)
+  function Addon:Ternary(expression, trueVal, falseVal) -- Does not use short-circuit evaluation
     if expression then
       return trueVal
     else
       return falseVal
+    end
+  end
+  
+  function Addon:ShortCircuit(expression, trueFunc, falseFunc) -- Uses short-circuit evaluation
+    if expression then
+      return trueFunc()
+    else
+      return falseFunc()
     end
   end
 end
@@ -1523,10 +1531,10 @@ do
       local GetDefaultOptionQuiet = format("Get%s%sOptionQuiet", defaultName, typeName)
       
       local function Get(self, quiet, ...)
-        assert(Addon[IsDBLoaded](self), format("Attempted to access database before initialization: %s", Addon:Concat(" > ", dbKey, typeKey, ...)))
+        assert(Addon[IsDBLoaded](self), format("Attempted to access %s database before initialization: %s", typeKey, Addon:Concat(" > ", dbKey, typeKey, ...)))
         local val = self[dbKey][typeKey]
         for _, key in ipairs{...} do
-          assert(type(val) == "table", format("Bad database access: %s", Addon:Concat(" > ", dbKey, typeKey, ...)))
+          assert(type(val) == "table", format("Bad database access (%s is not a table): %s", tostring(val), Addon:Concat(" > ", dbKey, typeKey, ...)))
           val = val[key]
         end
         
@@ -1557,7 +1565,7 @@ do
         local ResetOptionQuiet        = format("Reset%s%sOptionQuiet",        dbName, typeName)
         
         local function Set(self, val, ...)
-          assert(Addon[IsDBLoaded](self), format("Attempted to access database before initialization: %s = %s", Addon:Concat(" > ", dbKey, typeKey, ...), tostring(val)))
+          assert(Addon[IsDBLoaded](self), format("Attempted to access %s database before initialization: %s = %s", typeKey, Addon:Concat(" > ", dbKey, typeKey, ...), tostring(val)))
           local keys = {...}
           local nKeys = select("#", ...)
           local lastKey = tblRemove(keys, nKeys)
@@ -1586,14 +1594,14 @@ do
         end
         
         Addon[ToggleOption] = function(self, ...)
-          return self[SetOption](self, not self[GetOption](self, ...), ...)
+          return Addon[SetOption](self, not Addon[GetOption](self, ...), ...)
         end
         
         Addon[ResetOption] = function(self, ...)
-          return self[SetOption](self, Addon.Copy(self, self[GetDefaultOption](self, ...)), ...)
+          return Addon[SetOption](self, Addon.Copy(self, Addon[GetDefaultOption](self, ...)), ...)
         end
         Addon[ResetOptionQuiet] = function(self, ...)
-          return self[SetOption](self, Addon.Copy(self, self[GetDefaultOptionQuiet](self, ...)), ...)
+          return Addon[SetOption](self, Addon.Copy(self, Addon[GetDefaultOptionQuiet](self, ...)), ...)
         end
       end
     end
@@ -1637,12 +1645,16 @@ do
         end)
       end
     elseif oldVersion ~= currentVersion then
-      for version, Upgrade in GetOrderedUpgrades(init.upgrades) do
-        if Addon.SemVer(oldVersion) < Addon.SemVer(version) then
-          Addon:Debugf("Updating %s db from %s to %s", tostring(configType), tostring(oldVersion), version)
-          Addon:pcall(Upgrade, function(err)
-            Addon:Errorf("Data upgrade from %s to %s failed for %s db\n%s", tostring(oldVersion), tostring(version), tostring(configType), tostring(err))
-          end)
+      if init.upgrades then
+        for version, Upgrade in GetOrderedUpgrades(init.upgrades) do
+          if Addon.SemVer(oldVersion) < Addon.SemVer(version) then
+            Addon:Debugf("Updating %s db from %s to %s", tostring(configType), tostring(oldVersion), version)
+            if Addon:pcall(Upgrade, function(err)
+              Addon:Errorf("Data upgrade from %s to %s failed for %s db\n%s", tostring(oldVersion), tostring(version), tostring(configType), tostring(err))
+            end) then
+              break -- the upgrade function returned true, so run any further upgrades
+            end
+          end
         end
       end
     end
@@ -1694,7 +1706,7 @@ do
   Addon.MY_FACTION = UnitFactionGroup"player"
   
   
-  Addon.MAX_LEVEL = MAX_PLAYER_LEVEL_TABLE[GetExpansionLevel()] or 200
+  Addon.MAX_LEVEL = MAX_PLAYER_LEVEL_TABLE and MAX_PLAYER_LEVEL_TABLE[GetExpansionLevel()] or GetMaxLevelForPlayerExpansion()
   Addon.MY_LEVEL = UnitLevel"player"
   Addon:RegisterEventCallback("PLAYER_LEVEL_UP", function(self, event, level) self.MY_LEVEL = UnitLevel"player" end)
   

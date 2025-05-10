@@ -118,9 +118,10 @@ end
 function Addon:OnEnable()
   self.version = self.SemVer(C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version"))
   self:InitDB(dbInitFuncs)
-  self:GetDB().RegisterCallback(self, "OnProfileChanged", function() self:InitDB(dbInitFuncs, "profile") end)
-  self:GetDB().RegisterCallback(self, "OnProfileCopied" , function() self:InitDB(dbInitFuncs, "profile") end)
-  self:GetDB().RegisterCallback(self, "OnProfileReset"  , function() self:InitDB(dbInitFuncs, "profile") end)
+  self:GetDB().RegisterCallback(self, "OnProfileChanged",   function() self:OnProfileChanged() end)
+  self:GetDB().RegisterCallback(self, "OnProfileCopied",    function() self:OnProfileChanged() end)
+  self:GetDB().RegisterCallback(self, "OnProfileReset",     function() self:OnProfileChanged() end)
+  self:GetDB().RegisterCallback(self, "OnDatabaseShutdown", function() self:ShutdownDB()       end)
   
   self:InitChatCommands("lucky", "lm", "lom", "l-o-m", "lucko", "luck-o", "luck-o-meter", "luck-o-metre", "luckometre", ADDON_NAME:lower())
   

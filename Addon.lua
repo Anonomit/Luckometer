@@ -51,25 +51,6 @@ do
           if sv then
             sv.profiles = nil
           end
-          
-          -- track lucky items by key instead of as a list
-          local datetime = 1728532800 -- Thu Oct 10 2024 04:00:00 GMT+0000
-          for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
-            self.IndexedQueue(rolls)
-            local first = self:GetEarliestRollAfter(datetime, guid)
-            if first then
-              self:Debugf("Upgrading lucky items format for %s (%s) starting at roll %d", self:GetColoredNameRealmFromGUID(guid), guid, first)
-              for i, rollString in rolls:iter(first) do
-                local rollData = self:DeserializeRollData(rollString, first, guid)
-                local luckyItems = rollData.luckyItems
-                if luckyItems then
-                  self:Debugf("Upgrading lucky items format for roll %d", i)
-                  rollData.luckyItems = self:MakeLookupTable(luckyItems)
-                  rolls[i] = self:SerializeRollData(rollData)
-                end
-              end
-            end
-          end
         end,
         ["1.4.1"] = function()
           -- Delete any characters that have never rolled
@@ -81,6 +62,31 @@ do
           end
           for _, guid in ipairs(toDelete) do
             self:SetGlobalOption(nil, "characters", guid)
+          end
+        end,
+        ["1.5.1"] = function()
+          -- track lucky items by key instead of as a list
+          local datetime = 1728532800 -- Thu Oct 10 2024 04:00:00 GMT+0000 (rolls prior to this date did not track lucky items)
+          for guid, rolls in pairs(self:GetGlobalOptionQuiet"rolls") do
+            self.IndexedQueue(rolls)
+            local first = self:GetEarliestRollAfter(datetime, guid)
+            if first then
+              self:Debugf("Upgrading lucky items format for %s (%s) starting at roll %d", self:GetColoredNameRealmFromGUID(guid), guid, first)
+              local count = 0
+              for i, rollString in rolls:iter(first) do
+                local rollData = self:DeserializeRollData(rollString, first, guid)
+                local luckyItems = rollData.luckyItems
+                if luckyItems then
+                  count = count + 1
+                  self:Debugf("Upgrading lucky items format for roll %d", i)
+                  rollData.luckyItems = self:MakeLookupTable(luckyItems)
+                  rolls[i] = self:SerializeRollData(rollData)
+                end
+              end
+              if count > 0 then
+                self:Debugf("Upgraded %d rolls for %s (%s)", count, self:GetColoredNameRealmFromGUID(guid), guid)
+              end
+            end
           end
         end,
       },

@@ -804,42 +804,42 @@ local function MakeHistoryOptions(opts, categoryName)
       )
       
       for i = topRoll, bottomRoll do
-        local roll = results.rolls[i]
+        local rollData = results.rolls[i]
         
-        local opts = GUI:CreateGroupBox(opts, format("#%s: %s", self:ToFormattedNumber(i), self:GetFriendlyDate(roll.datetime)))
+        local opts = GUI:CreateGroupBox(opts, format("#%s: %s", self:ToFormattedNumber(i), self:GetFriendlyDate(rollData.datetime)))
         
-        local charName  = self:GetColoredNameRealmFromGUID(roll.guid)
-        local rollScore = self:Round(self:GetRollScore(roll.roll, roll.min, roll.max) * 100, 0.1)
+        local charName  = self:GetColoredNameRealmFromGUID(rollData.guid)
+        local rollScore = self:Round(self:GetRollScore(rollData.roll, rollData.min, rollData.max) * 100, 0.1)
         
-        if roll.manual then
+        if rollData.manual then
           
-          GUI:CreateDescription(opts, format(self.L["%s rolls %s (%s-%s)"], charName, self:ToFormattedNumber(roll.roll), self:ToFormattedNumber(roll.min), self:ToFormattedNumber(roll.max)), fontSize)
+          GUI:CreateDescription(opts, format(self.L["%s rolls %s (%s-%s)"], charName, self:ToFormattedNumber(rollData.roll), self:ToFormattedNumber(rollData.min), self:ToFormattedNumber(rollData.max)), fontSize)
         else
           local pattern = self.L["%s rolls %d (%s)"]
-          if roll.won then
+          if rollData.won then
             pattern = pattern .. youWonText
           end
-          GUI:CreateDescription(opts, format(pattern, charName, roll.roll, ROLL_TYPE_NAMES[roll.rollType]), fontSize)
+          GUI:CreateDescription(opts, format(pattern, charName, rollData.roll, ROLL_TYPE_NAMES[rollData.rollType]), fontSize)
         end
         
-        if not self:IsStandardRoll(roll.min, roll.max) then
-          GUI:CreateDescription(opts, format("%s %s%%", self.L["Score:"], self:Round(self:GetRollScore(roll.roll, roll.min, roll.max) * 100, 0.1)), fontSize)
+        if not self:IsStandardRoll(rollData.min, rollData.max) then
+          GUI:CreateDescription(opts, format("%s %s%%", self.L["Score:"], self:Round(self:GetRollScore(rollData.roll, rollData.min, rollData.max) * 100, 0.1)), fontSize)
         end
         
-        if roll.luckyItems then
+        if rollData.luckyItems then
           local itemNames = {}
-          for itemID in self:Ordered(roll.luckyItems) do
+          for itemID in self:Ordered(rollData.luckyItems) do
             itemNames[#itemNames+1] = self.luckyItemNames[itemID]
           end
           GUI:CreateDescription(opts, format(self.L["%d |4item:items; in inventory"] .. ":  %s", #itemNames, tblConcat(itemNames, " & ")), fontSize)
         end
         
-        if not roll.manual then
+        if not rollData.manual then
           
-          GUI:CreateDescription(opts, format("%s: %d", self.L["Players"], roll.numPlayers), fontSize)
+          GUI:CreateDescription(opts, format("%s: %d", self.L["Players"], rollData.numPlayers), fontSize)
           
           do
-            local item      = self.ItemCache(roll.itemLink)
+            local item      = self.ItemCache(rollData.itemLink)
             local colorCode = ITEM_QUALITY_COLORS[item:GetQuality()].hex
             local itemName  = format("%s %s%s", self:MakeIcon(item:GetIcon()), colorCode, item:GetName())
             
@@ -850,7 +850,7 @@ local function MakeHistoryOptions(opts, categoryName)
                 HandleModifiedItemClick(item:GetLink())
               else
                 ItemRefTooltip:SetOwner(WorldFrame, "ANCHOR_TOP_LEFT")
-                ItemRefTooltip:SetHyperlink(roll.itemLink)
+                ItemRefTooltip:SetHyperlink(rollData.itemLink)
                 ItemRefTooltip:Show()
               end
             end, disabled).width = 2

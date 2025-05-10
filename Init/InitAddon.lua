@@ -90,7 +90,7 @@ do
     
     for _, id in ipairs(orderedLuckyItems) do
       if GetItemCount(id) > 0 then
-        luckyItems[#luckyItems+1] = id
+        luckyItems[id] = true
       end
     end
     

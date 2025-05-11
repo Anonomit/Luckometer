@@ -1,14 +1,18 @@
 ignore:
   - LICENCE
 
+enable-toc-creation: yes
+
 manual-changelog:
-    filename: CHANGELOG_HISTORY.html
-    markup-type: html
+  filename: CHANGELOG_HISTORY.html
+  markup-type: html
 
 optional-dependencies:
   - ace3
+  - itemcache
   - semver
 
 embedded-libraries:
   - ace3
+  - itemcache
   - semver

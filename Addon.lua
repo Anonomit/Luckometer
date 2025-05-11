@@ -116,7 +116,7 @@ end
 
 function Addon:OnInitialize()
   self.db        = self.AceDB:New(("%sDB"):format(ADDON_NAME), self:MakeDefaultOptions(), true)
-  self.dbDefault = self.AceDB:New({}                         , self:MakeDefaultOptions(), true)
+  self.dbDefault = self.AceDB:New({},                          self:MakeDefaultOptions(), true)
   
   self:FireAddonEvent"INITIALIZE"
 end

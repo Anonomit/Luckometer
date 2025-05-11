@@ -247,7 +247,7 @@ L["Item"]                          = HELPFRAME_ITEM_TITLE
 L["You Won!"]                      = YOU_WON_LABEL
 L["%d |4item:items; in inventory"] = ITEMS_IN_INVENTORY
 
-L["Left-Click"] = function() return strMatch(NPE_TARGETFIRSTMOB, "^|c........(.-)|r") end
+L["Left-Click"] = function() return strMatch(NPE_TARGETFIRSTMOB, "^|c%x%x%x%x%x%x%x%x(.-)|r") end
 L["SHIFT"] = SHIFT_KEY_TEXT
 L["CTRL"] = CTRL_KEY_TEXT
 L["Check out this item!"] = SOCIAL_ITEM_PREFILL_TEXT_GENERIC

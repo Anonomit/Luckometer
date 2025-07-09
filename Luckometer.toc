@@ -1,7 +1,8 @@
-## Interface:         40402
+## Interface:         50500
+## Interface-Mists    50500
 ## Interface-Cata:    40402
 ## Interface-Classic: 11507
-## Version: 1.5.1
+## Version: 1.5.2
 
 ## X-Curse-Project-ID: 1105259
 ## X-Wago-ID: b6mbeqKP

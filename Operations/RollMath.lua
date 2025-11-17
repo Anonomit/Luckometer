@@ -82,6 +82,10 @@ do
   local root2 = mathSqrt(2)
   
   function Addon:CalculateLuck(rollScore, totalRolls)
+    if totalRolls == 0 then
+      return 0.5
+    end
+    
     -- Calculate the standard error
     local standardError = std / mathSqrt(totalRolls)
     

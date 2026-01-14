@@ -1472,8 +1472,13 @@ do
   
   onAddonLoadCallbacks = {}
   function Addon:OnAddonLoad(addonName, func)
-    local loaded, finished = IsAddOnLoaded(addonName)
-    if finished then
+    local loadedOrLoading, loaded
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+      loadedOrLoading, loaded = C_AddOns.IsAddOnLoaded(addonName)
+    else
+      loadedOrLoading, loaded = IsAddOnLoaded(addonName)
+    end
+    if loaded then
       Call(func, self)
     else
       self:RegisterEventCallback("ADDON_LOADED", function(self, event, addon)
@@ -2647,8 +2652,8 @@ do
       {"|4[^:]-:[^:]-;", ".-"},       -- removes ruRU |4singular:plural1:plural2;
     }
     local reversedPatternsCache = {}
-    function Addon:ReversePattern(text)
-      reversedPatternsCache[text] = reversedPatternsCache[text] or ("^" .. self:ChainGsub(text, unpack(chainGsubPattern)) .. "$")
+    function Addon:ReversePattern(text, noStart, noEnd)
+      reversedPatternsCache[text] = reversedPatternsCache[text] or ((noStart and "" or "^") .. self:ChainGsub(text, unpack(chainGsubPattern)) .. (noEnd and "" or "$"))
       return reversedPatternsCache[text]
     end
   end

@@ -1,21 +1,34 @@
 ## Interface:         50503
 ## Interface-Mists    50503
 ## Interface-Cata:    40402
+## Interface-TBC:     20505
 ## Interface-Classic: 11508
 ## Version: 1.5.3
 
 ## X-Curse-Project-ID: 1105259
 ## X-Wago-ID: b6mbeqKP
 
+## Category: Loot
+## Category-deDE: Beute
+## Category-esES: Botín
+## Category-esMX: Botín
+## Category-frFR: Butin
+## Category-itIT: Bottino
+## Category-koKR: 전리품
+## Category-ptBR: Saque
+## Category-ruRU: Добыча
+## Category-zhCN: 战利品
+## Category-zhTW: 戰利品
+
 ## Title: Luckometer
 ## Notes: Tracks your random rolls to calculate how much luck you have, as only science can. Can apply apotropaic statistics to filter your results to certain types of rolls.
+## IconTexture: Interface\AddOns\Luckometer\Assets\Textures\Addon Image.png
 ## Author: Anonomit
 
 ## SavedVariables: LuckometerDB
 
 ## OptionalDeps: Ace3, SemVer, ItemCache
 ## X-Embeds: Ace3, SemVer, ItemCache
-
 
 _addon.xml
 
